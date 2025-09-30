@@ -4,6 +4,7 @@
 .env.production
 *.key
 *.pem
+CREDENTIALS.md
 
 # Python
 __pycache__/
