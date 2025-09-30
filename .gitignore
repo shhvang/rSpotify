@@ -41,6 +41,9 @@ env/
 .bmad-core/
 .ai/
 
+# Documentation (kept in parent rSpotify/docs folder only)
+docs/
+
 # IDE files
 .vscode/
 .idea/
