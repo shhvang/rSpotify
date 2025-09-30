@@ -28,12 +28,12 @@ fi
 chown -R rspotify:rspotify /opt/rspotify-bot
 
 # Setup virtual environment
-cd /opt/rspotify-bot
-python3.11 -m venv venv
-source venv/bin/activate
+cd /opt/rspotify-bot/src/rspotify-bot
+python3.11 -m venv /opt/rspotify-bot/venv
+source /opt/rspotify-bot/venv/bin/activate
 pip install --upgrade pip
-pip install -r src/rspotify-bot/requirements.txt
-pip install -e src/rspotify-bot
+pip install -r requirements.txt
+pip install -e .
 
 # Create .env file
 cat > /opt/rspotify-bot/.env << EOF
