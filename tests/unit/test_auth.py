@@ -157,7 +157,9 @@ class TestOwnerAuthorization:
         update = Mock(spec=Update)
         update.message = message_obj
         update.effective_user = None
-        context = Mock(spec=ContextTypes.DEFAULT_TYPE)        # Call decorated function
+        context = Mock(spec=ContextTypes.DEFAULT_TYPE)
+
+        # Call decorated function
         result = await decorated_func(update, context)
 
         # Verify original function was NOT called
