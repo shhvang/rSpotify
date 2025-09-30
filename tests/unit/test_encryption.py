@@ -4,6 +4,7 @@ Tests encryption/decryption functionality and security features.
 """
 
 import pytest
+from unittest.mock import patch
 from cryptography.fernet import Fernet
 
 from rspotify_bot.services.encryption import EncryptionService
@@ -28,6 +29,7 @@ class TestEncryptionService:
         assert service is not None
         assert service.cipher is not None
 
+    @patch("rspotify_bot.services.encryption.config.ENCRYPTION_KEY", "")
     def test_initialization_without_key(self):
         """Test service initialization fails without key."""
         with pytest.raises(ValueError, match="Encryption key not provided"):
