@@ -3,7 +3,7 @@
 
 import os
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.ext import Application, CommandHandler, ContextTypes
 from dotenv import load_dotenv
 
@@ -25,7 +25,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [[
         InlineKeyboardButton(
             text="Open App",
-            url=WEB_APP_URL
+            web_app=WebAppInfo(url=WEB_APP_URL)
         )
     ]]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -43,7 +43,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send help message."""
     keyboard = [[
-        InlineKeyboardButton(text="Open App", url=WEB_APP_URL)
+        InlineKeyboardButton(text="Open App", web_app=WebAppInfo(url=WEB_APP_URL))
     ]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
