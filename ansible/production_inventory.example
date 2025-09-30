@@ -13,17 +13,9 @@ environment=production
 github_repo_url=https://github.com/shhvang/rSpotify.git
 app_version=main
 
-# SSL/HTTPS Configuration
-letsencrypt_email=your-email@example.com
-domain_name={{ duckdns_domain }}
-
 # Bot Configuration (injected from GitHub Secrets)
 telegram_bot_token={{ lookup('env', 'TELEGRAM_BOT_TOKEN') }}
 owner_telegram_id={{ lookup('env', 'OWNER_TELEGRAM_ID') }}
-
-# Spotify API Configuration (injected from GitHub Secrets)
-spotify_client_id={{ lookup('env', 'SPOTIFY_CLIENT_ID') }}
-spotify_client_secret={{ lookup('env', 'SPOTIFY_CLIENT_SECRET') }}
 
 # Database Configuration (injected from GitHub Secrets)
 mongodb_uri={{ lookup('env', 'MONGODB_URI') }}
@@ -31,10 +23,17 @@ mongodb_uri={{ lookup('env', 'MONGODB_URI') }}
 # Encryption Configuration (injected from GitHub Secrets)
 encryption_key={{ lookup('env', 'ENCRYPTION_KEY') }}
 
-# DuckDNS Configuration (injected from GitHub Secrets)
-duckdns_token={{ lookup('env', 'DUCKDNS_TOKEN') }}
-duckdns_domain={{ lookup('env', 'DUCKDNS_DOMAIN') }}
-
 # Optional: Pastebin Configuration (injected from GitHub Secrets)
 pastebin_api_key={{ lookup('env', 'PASTEBIN_API_KEY') }}
 pastebin_user_key={{ lookup('env', 'PASTEBIN_USER_KEY') }}
+
+# =================================================================
+# Spotify OAuth & DuckDNS Configuration (Will be added in Story 1.4)
+# =================================================================
+# Uncomment these when implementing OAuth authentication:
+# letsencrypt_email=your-email@example.com
+# domain_name={{ duckdns_domain }}
+# spotify_client_id={{ lookup('env', 'SPOTIFY_CLIENT_ID') }}
+# spotify_client_secret={{ lookup('env', 'SPOTIFY_CLIENT_SECRET') }}
+# duckdns_token={{ lookup('env', 'DUCKDNS_TOKEN') }}
+# duckdns_domain={{ lookup('env', 'DUCKDNS_DOMAIN') }}
