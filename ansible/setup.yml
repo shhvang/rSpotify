@@ -10,6 +10,12 @@
     app_user: rspotify
     app_dir: "/opt/{{ app_name }}"
     python_version: "3.11"
+    telegram_bot_token: "{{ lookup('env', 'TELEGRAM_BOT_TOKEN') }}"
+    owner_telegram_id: "{{ lookup('env', 'OWNER_TELEGRAM_ID') }}"
+    mongodb_uri: "{{ lookup('env', 'MONGODB_URI') }}"
+    encryption_key: "{{ lookup('env', 'ENCRYPTION_KEY') }}"
+    pastebin_api_key: "{{ lookup('env', 'PASTEBIN_API_KEY') | default('') }}"
+    pastebin_user_key: "{{ lookup('env', 'PASTEBIN_USER_KEY') | default('') }}"
     
   tasks:
     - name: Update system packages
@@ -65,9 +71,10 @@
       notify: restart rspotify-bot
     
     - name: Create Python virtual environment
-      python_virtualenv:
+      pip:
+        name: pip
         virtualenv: "{{ app_dir }}/venv"
-        virtualenv_python: python3.11
+        virtualenv_command: python3.11 -m venv
       become_user: "{{ app_user }}"
     
     - name: Install Python dependencies

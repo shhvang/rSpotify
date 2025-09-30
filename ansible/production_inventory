@@ -1,0 +1,13 @@
+# Ansible Inventory for Production Environment (24/7 Production Bot)
+# This file contains actual credentials - already in .gitignore
+
+[rspotify_servers]
+production-vps ansible_host=178.128.48.130 ansible_user=root ansible_port=22
+
+[rspotify_servers:vars]
+# Environment Configuration
+environment=production
+
+# GitHub Repository
+github_repo_url=https://github.com/shhvang/rSpotify.git
+app_version=main
