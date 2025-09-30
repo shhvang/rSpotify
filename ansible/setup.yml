@@ -16,6 +16,11 @@
     encryption_key: "{{ lookup('env', 'ENCRYPTION_KEY') }}"
     pastebin_api_key: "{{ lookup('env', 'PASTEBIN_API_KEY') | default('') }}"
     pastebin_user_key: "{{ lookup('env', 'PASTEBIN_USER_KEY') | default('') }}"
+    spotify_client_id: "{{ lookup('env', 'SPOTIFY_CLIENT_ID') }}"
+    spotify_client_secret: "{{ lookup('env', 'SPOTIFY_CLIENT_SECRET') }}"
+    duckdns_token: "{{ lookup('env', 'DUCKDNS_TOKEN') | default('') }}"
+    duckdns_domain: "{{ lookup('env', 'DUCKDNS_DOMAIN') | default('localhost') }}"
+    domain_name: "{{ lookup('env', 'DUCKDNS_DOMAIN') | default('localhost') }}"
     
   tasks:
     - name: Update system packages

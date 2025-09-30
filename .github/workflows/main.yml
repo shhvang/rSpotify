@@ -165,11 +165,10 @@ jobs:
         ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
         PASTEBIN_API_KEY: ${{ secrets.PASTEBIN_API_KEY }}
         PASTEBIN_USER_KEY: ${{ secrets.PASTEBIN_USER_KEY }}
-        # Spotify OAuth and DuckDNS will be added in Story 1.4
-        # SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
-        # SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
-        # DUCKDNS_TOKEN: ${{ secrets.DUCKDNS_TOKEN }}
-        # DUCKDNS_DOMAIN: ${{ secrets.DUCKDNS_DOMAIN }}
+        SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+        SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+        DUCKDNS_TOKEN: ${{ secrets.DUCKDNS_TOKEN }}
+        DUCKDNS_DOMAIN: ${{ secrets.DUCKDNS_DOMAIN }}
     
     - name: Notify deployment success
       if: success()
