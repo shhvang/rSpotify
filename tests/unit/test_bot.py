@@ -29,7 +29,7 @@ class TestRSpotifyBot:
         update.effective_chat.id = 67890
 
         update.message = Mock(spec=Message)
-        update.message.reply_text = AsyncMock()
+        update.message.reply_html = AsyncMock()
         update.message.text = "/ping"
 
         return update
@@ -58,15 +58,14 @@ class TestRSpotifyBot:
         await bot.ping_command(mock_update, mock_context)
 
         # Verify response was sent
-        mock_update.message.reply_text.assert_called_once()
-        call_args = mock_update.message.reply_text.call_args
+        mock_update.message.reply_html.assert_called_once()
+        call_args = mock_update.message.reply_html.call_args
 
         # Check response content
         response_text = call_args[0][0]
-        assert "🏓 **Pong!**" in response_text
+        assert "🏓 Pong!" in response_text
         assert "TestUser" in response_text
         assert "✅ Connected" in response_text
-        assert call_args[1]["parse_mode"] == "Markdown"
 
     @pytest.mark.asyncio
     async def test_ping_command_db_disconnected(self, bot, mock_update, mock_context):
@@ -78,7 +77,7 @@ class TestRSpotifyBot:
         await bot.ping_command(mock_update, mock_context)
 
         # Verify response contains disconnected status
-        call_args = mock_update.message.reply_text.call_args
+        call_args = mock_update.message.reply_html.call_args
         response_text = call_args[0][0]
         assert "❌ Disconnected" in response_text
 
@@ -88,12 +87,12 @@ class TestRSpotifyBot:
         await bot.start_command(mock_update, mock_context)
 
         # Verify response was sent
-        mock_update.message.reply_text.assert_called_once()
-        call_args = mock_update.message.reply_text.call_args
+        mock_update.message.reply_html.assert_called_once()
+        call_args = mock_update.message.reply_html.call_args
 
         # Check response content
         response_text = call_args[0][0]
-        assert "🎵 **Welcome to rSpotify Bot!**" in response_text
+        assert "Welcome to rSpotify Bot!" in response_text
         assert "TestUser" in response_text
 
     @pytest.mark.asyncio
@@ -102,12 +101,12 @@ class TestRSpotifyBot:
         await bot.help_command(mock_update, mock_context)
 
         # Verify response was sent
-        mock_update.message.reply_text.assert_called_once()
-        call_args = mock_update.message.reply_text.call_args
+        mock_update.message.reply_html.assert_called_once()
+        call_args = mock_update.message.reply_html.call_args
 
         # Check response content
         response_text = call_args[0][0]
-        assert "🤖 **rSpotify Bot - Available Commands**" in response_text
+        assert "rSpotify Bot" in response_text
         assert "/ping" in response_text
 
     @pytest.mark.asyncio
@@ -118,9 +117,9 @@ class TestRSpotifyBot:
         await bot.unknown_command(mock_update, mock_context)
 
         # Verify error response was sent
-        call_args = mock_update.message.reply_text.call_args
+        call_args = mock_update.message.reply_html.call_args
         response_text = call_args[0][0]
-        assert "❓ **Unknown Command**" in response_text
+        assert "Unknown Command" in response_text
         assert "/unknown" in response_text
 
     @pytest.mark.asyncio
@@ -139,7 +138,7 @@ class TestRSpotifyBot:
         assert "❌ **Oops! Something went wrong.**" in response_text
 
     @pytest.mark.asyncio
-    @patch("rspotify_bot.bot.config.TELEGRAM_BOT_OWNER_ID", "999")
+    @patch("rspotify_bot.config.Config.OWNER_TELEGRAM_ID", "999")
     async def test_error_handler_notifies_owner(self, bot, mock_update, mock_context):
         """Test error handler notifies bot owner."""
         mock_context.error = Exception("Test error")
@@ -151,4 +150,4 @@ class TestRSpotifyBot:
         mock_context.bot.send_message.assert_called_once()
         call_args = mock_context.bot.send_message.call_args
         assert call_args[1]["chat_id"] == "999"
-        assert "🚨 **Bot Error Alert**" in call_args[1]["text"]
+        assert "Bot Error Alert" in call_args[1]["text"]

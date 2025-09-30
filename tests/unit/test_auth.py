@@ -80,13 +80,14 @@ class TestOwnerAuthorization:
         # Create mock update with non-owner user
         user = User(id=54321, first_name="Regular", is_bot=False)
         chat = Chat(id=1, type="private")
-        message = Mock()
-        message.reply_html = AsyncMock()
-        message_obj = Message(
-            message_id=1, date=None, chat=chat, from_user=user, text="/test"
-        )
-        update = Update(update_id=1, message=message_obj)
-        update.message = message  # Override with mock for reply_html
+        message_obj = Mock()
+        message_obj.reply_html = AsyncMock()
+        message_obj.from_user = user
+        message_obj.chat = chat
+        
+        update = Mock(spec=Update)
+        update.message = message_obj
+        update.effective_user = user
         context = Mock(spec=ContextTypes.DEFAULT_TYPE)
 
         # Call decorated function
@@ -96,8 +97,8 @@ class TestOwnerAuthorization:
         mock_func.assert_not_called()
 
         # Verify access denied message was sent
-        message.reply_html.assert_called_once()
-        call_args = message.reply_html.call_args[0][0]
+        message_obj.reply_html.assert_called_once()
+        call_args = message_obj.reply_html.call_args[0][0]
         assert "Access Denied" in call_args
 
         # Verify function returned None
@@ -114,13 +115,14 @@ class TestOwnerAuthorization:
         # Create mock update
         user = User(id=12345, first_name="User", is_bot=False)
         chat = Chat(id=1, type="private")
-        message = Mock()
-        message.reply_html = AsyncMock()
-        message_obj = Message(
-            message_id=1, date=None, chat=chat, from_user=user, text="/test"
-        )
-        update = Update(update_id=1, message=message_obj)
-        update.message = message
+        message_obj = Mock()
+        message_obj.reply_html = AsyncMock()
+        message_obj.from_user = user
+        message_obj.chat = chat
+        
+        update = Mock(spec=Update)
+        update.message = message_obj
+        update.effective_user = user
         context = Mock(spec=ContextTypes.DEFAULT_TYPE)
 
         # Call decorated function
@@ -130,8 +132,8 @@ class TestOwnerAuthorization:
         mock_func.assert_not_called()
 
         # Verify configuration error message was sent
-        message.reply_html.assert_called_once()
-        call_args = message.reply_html.call_args[0][0]
+        message_obj.reply_html.assert_called_once()
+        call_args = message_obj.reply_html.call_args[0][0]
         assert "Configuration Error" in call_args
 
         # Verify function returned None
@@ -147,13 +149,13 @@ class TestOwnerAuthorization:
 
         # Create mock update with no user
         chat = Chat(id=1, type="private")
-        message = Mock()
-        message.reply_html = AsyncMock()
-        message_obj = Message(
-            message_id=1, date=None, chat=chat, from_user=None, text="/test"
-        )
-        update = Update(update_id=1, message=message_obj)
-        update.message = message
+        message_obj = Mock()
+        message_obj.reply_html = AsyncMock()
+        message_obj.from_user = None
+        message_obj.chat = chat
+        
+        update = Mock(spec=Update)
+        update.message = message_obj
         update.effective_user = None
         context = Mock(spec=ContextTypes.DEFAULT_TYPE)
 
@@ -164,8 +166,8 @@ class TestOwnerAuthorization:
         mock_func.assert_not_called()
 
         # Verify access denied message was sent
-        message.reply_html.assert_called_once()
-        call_args = message.reply_html.call_args[0][0]
+        message_obj.reply_html.assert_called_once()
+        call_args = message_obj.reply_html.call_args[0][0]
         assert "Access Denied" in call_args
 
         # Verify function returned None
