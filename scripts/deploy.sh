@@ -1,7 +1,7 @@
 ﻿#!/bin/bash
 set -e
 
-echo " Starting rSpotify Bot deployment..."
+echo "🚀 Starting rSpotify Bot deployment..."
 
 # Update system
 apt-get update -y
@@ -12,7 +12,9 @@ useradd -m -s /bin/bash rspotify || true
 
 # Create directories
 mkdir -p /opt/rspotify-bot/{logs,backups}
-chown -R rspotify:rspotify /opt/rspotify-bot
+
+# Fix git ownership issue
+git config --global --add safe.directory /opt/rspotify-bot/src
 
 # Clone/update repository
 if [ -d "/opt/rspotify-bot/src" ]; then
@@ -20,7 +22,10 @@ if [ -d "/opt/rspotify-bot/src" ]; then
     git pull origin main
 else
     git clone https://github.com/shhvang/rSpotify.git /opt/rspotify-bot/src
+    git config --global --add safe.directory /opt/rspotify-bot/src
 fi
+
+chown -R rspotify:rspotify /opt/rspotify-bot
 
 # Setup virtual environment
 cd /opt/rspotify-bot
