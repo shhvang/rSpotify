@@ -85,3 +85,7 @@ Dockerfile*
 # Ansible temporary files
 ansible/*.retry
 ansible/group_vars/all/vault.yml
+
+# Ansible inventory files with credentials (keep .example files)
+ansible/staging_inventory
+ansible/production_inventory

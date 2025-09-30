@@ -1,0 +1,40 @@
+# Ansible Inventory for Staging Environment (Test Bot)
+# Copy this file to 'staging_inventory' and fill in your actual values
+# DO NOT commit the actual staging_inventory file with real credentials
+
+[rspotify_servers]
+staging-vps ansible_host=YOUR_STAGING_VPS_IP ansible_user=YOUR_SSH_USER ansible_port=22
+
+[rspotify_servers:vars]
+# Environment Configuration
+environment=staging
+
+# GitHub Repository
+github_repo_url=https://github.com/shhvang/rSpotify.git
+app_version=develop
+
+# SSL/HTTPS Configuration
+letsencrypt_email=your-email@example.com
+domain_name={{ duckdns_domain }}
+
+# Bot Configuration (injected from GitHub Secrets)
+telegram_bot_token={{ lookup('env', 'TELEGRAM_BOT_TOKEN') }}
+owner_telegram_id={{ lookup('env', 'OWNER_TELEGRAM_ID') }}
+
+# Spotify API Configuration (injected from GitHub Secrets)
+spotify_client_id={{ lookup('env', 'SPOTIFY_CLIENT_ID') }}
+spotify_client_secret={{ lookup('env', 'SPOTIFY_CLIENT_SECRET') }}
+
+# Database Configuration (injected from GitHub Secrets)
+mongodb_uri={{ lookup('env', 'MONGODB_URI') }}
+
+# Encryption Configuration (injected from GitHub Secrets)
+encryption_key={{ lookup('env', 'ENCRYPTION_KEY') }}
+
+# DuckDNS Configuration (injected from GitHub Secrets)
+duckdns_token={{ lookup('env', 'DUCKDNS_TOKEN') }}
+duckdns_domain={{ lookup('env', 'DUCKDNS_DOMAIN') }}
+
+# Optional: Pastebin Configuration (injected from GitHub Secrets)
+pastebin_api_key={{ lookup('env', 'PASTEBIN_API_KEY') }}
+pastebin_user_key={{ lookup('env', 'PASTEBIN_USER_KEY') }}
