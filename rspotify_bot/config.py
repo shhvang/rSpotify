@@ -84,9 +84,7 @@ class Config:
                 missing_vars.append(var_name)
 
         if missing_vars:
-            logger.error(
-                f"Missing required environment variables: {missing_vars}"
-            )
+            logger.error(f"Missing required environment variables: {missing_vars}")
             return False
 
         return True
