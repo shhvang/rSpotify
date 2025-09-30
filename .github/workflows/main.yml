@@ -43,9 +43,9 @@ jobs:
     
     - name: Create test environment file
       run: |
-        echo "TELEGRAM_BOT_TOKEN=test_token" > .env
+        python -c "from cryptography.fernet import Fernet; print('ENCRYPTION_KEY=' + Fernet.generate_key().decode())" > .env
+        echo "TELEGRAM_BOT_TOKEN=test_token" >> .env
         echo "MONGODB_URI=mongodb://localhost:27017/test_db" >> .env
-        echo "ENCRYPTION_KEY=test_encryption_key_32_bytes_long_for_testing!" >> .env
         echo "ENVIRONMENT=testing" >> .env
         echo "DEBUG=true" >> .env
     
