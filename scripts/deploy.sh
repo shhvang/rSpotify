@@ -57,7 +57,7 @@ EOF
 chown rspotify:rspotify /opt/rspotify-bot/repo/.env
 chmod 600 /opt/rspotify-bot/repo/.env
 
-# Setup supervisor
+# Setup supervisor for rSpotify bot
 cat > /etc/supervisor/conf.d/rspotify-bot.conf << 'EOF'
 [program:rspotify-bot]
 command=/opt/rspotify-bot/venv/bin/python /opt/rspotify-bot/repo/rspotify.py
@@ -70,10 +70,73 @@ stdout_logfile=/opt/rspotify-bot/logs/bot_output.log
 environment=HOME="/opt/rspotify-bot",PATH="/opt/rspotify-bot/venv/bin"
 EOF
 
+# Setup web app bots if tokens are provided
+if [ ! -z "${BETTERTHANVERY_BOT_TOKEN}" ]; then
+    echo "📱 Setting up Better Than Very bot..."
+    
+    # Add to .env
+    cat >> /opt/rspotify-bot/repo/.env << EOF
+BETTERTHANVERY_BOT_TOKEN=${BETTERTHANVERY_BOT_TOKEN}
+BETTERTHANVERY_WEB_URL=https://betterthanvery.netlify.app
+EOF
+    
+    # Supervisor config
+    cat > /etc/supervisor/conf.d/betterthanvery-bot.conf << 'EOF'
+[program:betterthanvery-bot]
+command=/opt/rspotify-bot/venv/bin/python /opt/rspotify-bot/repo/web_apps/betterthanvery/bot.py
+directory=/opt/rspotify-bot/repo
+user=rspotify
+autostart=true
+autorestart=true
+stderr_logfile=/opt/rspotify-bot/logs/betterthanvery_error.log
+stdout_logfile=/opt/rspotify-bot/logs/betterthanvery_output.log
+environment=HOME="/opt/rspotify-bot",PATH="/opt/rspotify-bot/venv/bin"
+EOF
+fi
+
+if [ ! -z "${PERFECTCIRCLE_BOT_TOKEN}" ]; then
+    echo "🎨 Setting up Perfect Circle bot..."
+    
+    # Add to .env
+    cat >> /opt/rspotify-bot/repo/.env << EOF
+PERFECTCIRCLE_BOT_TOKEN=${PERFECTCIRCLE_BOT_TOKEN}
+PERFECTCIRCLE_WEB_URL=https://perfectcircle.netlify.app
+EOF
+    
+    # Supervisor config
+    cat > /etc/supervisor/conf.d/perfectcircle-bot.conf << 'EOF'
+[program:perfectcircle-bot]
+command=/opt/rspotify-bot/venv/bin/python /opt/rspotify-bot/repo/web_apps/perfectcircle/bot.py
+directory=/opt/rspotify-bot/repo
+user=rspotify
+autostart=true
+autorestart=true
+stderr_logfile=/opt/rspotify-bot/logs/perfectcircle_error.log
+stdout_logfile=/opt/rspotify-bot/logs/perfectcircle_output.log
+environment=HOME="/opt/rspotify-bot",PATH="/opt/rspotify-bot/venv/bin"
+EOF
+fi
+
 # Reload supervisor
 supervisorctl reread
 supervisorctl update
 supervisorctl restart rspotify-bot
 
-echo " Deployment complete! Bot is running."
+# Restart web app bots if configured
+if [ ! -z "${BETTERTHANVERY_BOT_TOKEN}" ]; then
+    supervisorctl restart betterthanvery-bot
+fi
+if [ ! -z "${PERFECTCIRCLE_BOT_TOKEN}" ]; then
+    supervisorctl restart perfectcircle-bot
+fi
+
+echo "✅ Deployment complete!"
+echo ""
+echo "📊 Bot Status:"
 supervisorctl status rspotify-bot
+if [ ! -z "${BETTERTHANVERY_BOT_TOKEN}" ]; then
+    supervisorctl status betterthanvery-bot
+fi
+if [ ! -z "${PERFECTCIRCLE_BOT_TOKEN}" ]; then
+    supervisorctl status perfectcircle-bot
+fi

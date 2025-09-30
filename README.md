@@ -10,7 +10,15 @@ A Telegram bot for Spotify track sharing and recommendations with automated depl
 - MongoDB Atlas data persistence
 - Secure OAuth integration with DuckDNS
 
-### 🔒 Security & Privacy (Story 1.3)
+### � Web App Bots (Optional)
+Includes two additional lightweight bots that can be deployed alongside rSpotify:
+
+- **Better Than Very Bot** (@BetterThanVeryBot) - Suggests stronger single-word replacements for "very + word" phrases
+- **Perfect Circle Bot** (@PerfectCircleBot) - Fun game to test your circle drawing accuracy
+
+These bots run as independent processes but share the same deployment infrastructure.
+
+### �🔒 Security & Privacy (Story 1.3)
 - **Encrypted Data Storage**: Fernet symmetric encryption for OAuth tokens
 - **Input Sanitization**: Protection against NoSQL injection and XSS attacks
 - **Data Privacy Compliance**: GDPR-compliant data export and deletion
