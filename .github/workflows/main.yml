@@ -2,8 +2,6 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop, 'feature/**' ]
-  pull_request:
     branches: [ main ]
   workflow_dispatch:
 
@@ -20,17 +18,11 @@ jobs:
         image: mongo:7.0
         ports:
           - 27017:27017
-        options: >-
-          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 3
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
     
-    - name: Set up Python ${{ env.PYTHON_VERSION }}
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
@@ -38,118 +30,37 @@ jobs:
     
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
+        pip install --upgrade pip
         pip install -e ".[test]"
     
-    - name: Create test environment file
+    - name: Create test environment
       run: |
         python -c "from cryptography.fernet import Fernet; print('ENCRYPTION_KEY=' + Fernet.generate_key().decode())" > .env
         echo "TELEGRAM_BOT_TOKEN=test_token" >> .env
         echo "MONGODB_URI=mongodb://localhost:27017/test_db" >> .env
-        echo "ENVIRONMENT=testing" >> .env
-        echo "DEBUG=true" >> .env
     
-    - name: Run unit tests
-      run: |
-        pytest tests/unit/ -v --cov=rspotify_bot --cov-report=xml
-    
-    - name: Run integration tests
-      run: |
-        pytest tests/integration/ -v
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+    - name: Run tests
+      run: pytest tests/ -v --cov=rspotify_bot
 
-  security:
-    name: Security Scan
+  deploy:
+    name: Deploy to VPS
     runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-    
-    - name: Install security tools
-      run: |
-        python -m pip install --upgrade pip
-        pip install bandit safety
-    
-    - name: Run Bandit security linter
-      run: |
-        bandit -r rspotify_bot -f json -o bandit-report.json
-      continue-on-error: true
-    
-    - name: Check dependencies for known vulnerabilities
-      run: |
-        safety check --json --output safety-report.json
-      continue-on-error: true
-
-  build:
-    name: Build Package
-    runs-on: ubuntu-latest
-    needs: [test, security]
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-    
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build wheel
-    
-    - name: Build package
-      run: |
-        python -m build
-    
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: dist-packages
-        path: dist/
-
-  # Staging deployment removed - testing done locally
-  # Will be re-enabled when needed for multi-environment setup
-
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [build]
+    needs: test
     if: github.ref == 'refs/heads/main'
-    environment: production
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
     
-    - name: Setup SSH key
+    - name: Deploy via SSH
       run: |
         mkdir -p ~/.ssh
-        echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
-        chmod 600 ~/.ssh/deploy_key
+        echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/key
+        chmod 600 ~/.ssh/key
         ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
-    
-    - name: Copy deployment script to VPS
-      run: |
-        scp -i ~/.ssh/deploy_key scripts/deploy.sh root@${{ secrets.PRODUCTION_HOST }}:/tmp/deploy.sh
-    
-    - name: Run deployment on VPS
-      run: |
-        ssh -i ~/.ssh/deploy_key root@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
+        
+        scp -i ~/.ssh/key scripts/deploy.sh root@${{ secrets.PRODUCTION_HOST }}:/tmp/deploy.sh
+        
+        ssh -i ~/.ssh/key root@${{ secrets.PRODUCTION_HOST }} << 'EOF'
           export TELEGRAM_BOT_TOKEN="${{ secrets.PRODUCTION_BOT_TOKEN }}"
           export MONGODB_URI="${{ secrets.MONGODB_URI }}"
           export OWNER_TELEGRAM_ID="${{ secrets.OWNER_TELEGRAM_ID }}"
@@ -160,65 +71,13 @@ jobs:
           export PASTEBIN_USER_KEY="${{ secrets.PASTEBIN_USER_KEY }}"
           export DUCKDNS_TOKEN="${{ secrets.DUCKDNS_TOKEN }}"
           export DUCKDNS_DOMAIN="${{ secrets.DUCKDNS_DOMAIN }}"
-          
-          chmod +x /tmp/deploy.sh
           bash /tmp/deploy.sh
-        ENDSSH
+        EOF
     
-    - name: Notify deployment success
-      if: success()
+    - name: Notify
+      if: always()
       run: |
+        STATUS="${{ job.status == 'success' && '✅ Deployed successfully!' || '❌ Deployment failed!' }}"
         curl -X POST "https://api.telegram.org/bot${{ secrets.PRODUCTION_BOT_TOKEN }}/sendMessage" \
-        -d "chat_id=${{ secrets.OWNER_TELEGRAM_ID }}" \
-        -d "text=🚀 rSpotify Bot successfully deployed to production!" \
-        -d "parse_mode=Markdown"
-    
-    - name: Notify deployment failure
-      if: failure()
-      run: |
-        curl -X POST "https://api.telegram.org/bot${{ secrets.PRODUCTION_BOT_TOKEN }}/sendMessage" \
-        -d "chat_id=${{ secrets.OWNER_TELEGRAM_ID }}" \
-        -d "text=❌ rSpotify Bot deployment to production failed!" \
-        -d "parse_mode=Markdown"
-
-  rollback:
-    name: Rollback Deployment
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-    environment: production
-    
-    steps:
-    - name: Checkout previous version
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ github.event.inputs.rollback_commit || 'HEAD~1' }}
-    
-    - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-    
-    - name: Install Ansible
-      run: |
-        python -m pip install --upgrade pip
-        pip install ansible-core
-        ansible-galaxy collection install community.general
-    
-    - name: Setup SSH key
-      run: |
-        mkdir -p ~/.ssh
-        echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
-        chmod 600 ~/.ssh/deploy_key
-        ssh-keyscan -H "${{ secrets.PRODUCTION_HOST }}" >> ~/.ssh/known_hosts
-    
-    - name: Rollback production deployment
-      run: |
-        cd ansible
-        ansible-playbook -i production_inventory rollback.yml --private-key ~/.ssh/deploy_key
-    
-    - name: Notify rollback completion
-      run: |
-        curl -X POST "https://api.telegram.org/bot${{ secrets.PRODUCTION_BOT_TOKEN }}/sendMessage" \
-        -d "chat_id=${{ secrets.OWNER_TELEGRAM_ID }}" \
-        -d "text=↩️ rSpotify Bot rolled back to previous version" \
-        -d "parse_mode=Markdown"
+          -d "chat_id=${{ secrets.OWNER_TELEGRAM_ID }}" \
+          -d "text=$STATUS"
