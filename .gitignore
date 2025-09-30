@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.production
+.env.test
 *.key
 *.pem
 CREDENTIALS.md
