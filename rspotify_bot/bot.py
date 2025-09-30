@@ -146,11 +146,16 @@ class RSpotifyBot:
             update: Telegram update object
             context: Bot context
         """
+        import time
+
         user = update.effective_user
         chat = update.effective_chat
 
         if not user or not chat:
             return
+
+        # Start timing
+        start_time = time.time()
 
         # Check maintenance mode
         if self.owner_handler and self.owner_handler.is_maintenance_mode():
@@ -162,27 +167,47 @@ class RSpotifyBot:
 
         logger.info(f"Ping command from user {user.id} in chat {chat.id}")
 
-        # Test database connection
-        db_status = (
-            "✅ Connected"
-            if self.db_service and await self.db_service.health_check()
-            else "❌ Disconnected"
-        )
+        # Test database connection with timing
+        db_start = time.time()
+        db_connected = False
+        db_time_ms = 0
+
+        if self.db_service:
+            db_connected = await self.db_service.health_check()
+            db_time_ms = (time.time() - db_start) * 1000
+
+        db_status = "✅ Connected" if db_connected else "❌ Disconnected"
 
         if not update.message:
             return
 
-        # Create response message
+        # Calculate Telegram API response time
+        telegram_start = time.time()
+
+        # Create response message with timings
         response = (
             f"<b>🏓 Pong!</b>\n\n"
             f"👋 Hello <b>{user.first_name or 'there'}</b>!\n"
             f"🤖 Bot is running and responsive\n"
             f"🗄️ Database: {db_status}\n"
             f"⚡ Environment: <code>{Config.ENVIRONMENT}</code>\n\n"
+            f"<b>⏱️ Response Timings:</b>\n"
+            f"• Database: <code>{db_time_ms:.2f}ms</code>\n"
+        )
+
+        # Send response and measure time
+        await update.message.reply_html(response)
+        telegram_time_ms = (time.time() - telegram_start) * 1000
+        total_time_ms = (time.time() - start_time) * 1000
+
+        # Send timing follow-up
+        timing_msg = (
+            f"• Telegram API: <code>{telegram_time_ms:.2f}ms</code>\n"
+            f"• <b>Total:</b> <code>{total_time_ms:.2f}ms</code>\n\n"
             f"<i>Use /help for available commands.</i>"
         )
 
-        await update.message.reply_html(response)
+        await update.message.reply_html(timing_msg)
 
     async def start_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -280,7 +305,9 @@ class RSpotifyBot:
                 "• <code>/maintenance [on|off]</code> - Toggle maintenance mode\n"
                 "• <code>/stats [days]</code> - Show bot usage statistics\n"
                 "• <code>/blacklist &lt;user_id&gt; [reason]</code> - Block user\n"
-                "• <code>/whitelist &lt;user_id&gt;</code> - Unblock user\n\n"
+                "• <code>/whitelist &lt;user_id&gt;</code> - Unblock user\n"
+                "• <code>/logs [lines]</code> - Get bot output logs\n"
+                "• <code>/errorlogs [lines]</code> - Get bot error logs\n\n"
             )
 
         help_message += (

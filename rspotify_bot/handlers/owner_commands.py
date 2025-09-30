@@ -393,6 +393,160 @@ class OwnerCommands:
         except TelegramError as e:
             logger.error(f"Failed to send maintenance message: {e}")
 
+    async def logs_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """
+        Send bot output logs to owner.
+        Usage: /logs [lines] - Default: last 50 lines
+        """
+        if not update.message:
+            return
+
+        user = update.effective_user
+        if not user or not await is_owner(user.id):
+            await update.message.reply_html(
+                "<b>⛔ Unauthorized</b>\n"
+                "<i>This command is only available to the bot owner.</i>"
+            )
+            return
+
+        try:
+            # Parse lines parameter
+            lines = 50  # default
+            if context.args:
+                try:
+                    lines = max(10, min(500, int(context.args[0])))
+                except ValueError:
+                    pass
+
+            # Read log file
+            log_file = "/opt/rspotify-bot/logs/bot_output.log"
+
+            try:
+                with open(log_file, "r") as f:
+                    all_lines = f.readlines()
+                    log_content = "".join(all_lines[-lines:])
+            except FileNotFoundError:
+                await update.message.reply_html("<b>❌ Log file not found</b>")
+                return
+            except Exception as e:
+                await update.message.reply_html(
+                    f"<b>❌ Error reading logs:</b> {str(e)}"
+                )
+                return
+
+            if not log_content.strip():
+                await update.message.reply_html(
+                    "<b>📊 Bot Logs</b>\n\n<i>Log file is empty</i>"
+                )
+                return
+
+            # Send as document if too long, otherwise as message
+            if len(log_content) > 3000:
+                from io import BytesIO
+
+                log_bytes = BytesIO(log_content.encode("utf-8"))
+                log_bytes.name = (
+                    f"bot_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                )
+                await update.message.reply_document(
+                    document=log_bytes,
+                    caption=f"<b>📊 Bot Logs</b>\n<i>Last {lines} lines</i>",
+                    parse_mode="HTML",
+                )
+            else:
+                await update.message.reply_html(
+                    f"<b>📊 Bot Logs (Last {lines} lines)</b>\n\n"
+                    f"<pre>{log_content}</pre>"
+                )
+
+            logger.info(f"Logs sent to owner (last {lines} lines)")
+
+        except Exception as e:
+            logger.error(f"Error in logs command: {e}")
+            await update.message.reply_html(
+                "<b>⚠️ Error</b>\n<i>Failed to retrieve logs.</i>"
+            )
+
+    async def errorlogs_command(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """
+        Send bot error logs to owner.
+        Usage: /errorlogs [lines] - Default: last 50 lines
+        """
+        if not update.message:
+            return
+
+        user = update.effective_user
+        if not user or not await is_owner(user.id):
+            await update.message.reply_html(
+                "<b>⛔ Unauthorized</b>\n"
+                "<i>This command is only available to the bot owner.</i>"
+            )
+            return
+
+        try:
+            # Parse lines parameter
+            lines = 50  # default
+            if context.args:
+                try:
+                    lines = max(10, min(500, int(context.args[0])))
+                except ValueError:
+                    pass
+
+            # Read error log file
+            log_file = "/opt/rspotify-bot/logs/bot_error.log"
+
+            try:
+                with open(log_file, "r") as f:
+                    all_lines = f.readlines()
+                    log_content = "".join(all_lines[-lines:])
+            except FileNotFoundError:
+                await update.message.reply_html(
+                    "<b>✅ No error log found</b>\n<i>No errors recorded!</i>"
+                )
+                return
+            except Exception as e:
+                await update.message.reply_html(
+                    f"<b>❌ Error reading logs:</b> {str(e)}"
+                )
+                return
+
+            if not log_content.strip():
+                await update.message.reply_html(
+                    "<b>✅ Error log is empty</b>\n<i>No errors recorded!</i>"
+                )
+                return
+
+            # Send as document if too long, otherwise as message
+            if len(log_content) > 3000:
+                from io import BytesIO
+
+                log_bytes = BytesIO(log_content.encode("utf-8"))
+                log_bytes.name = (
+                    f"bot_errors_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                )
+                await update.message.reply_document(
+                    document=log_bytes,
+                    caption=f"<b>⚠️ Error Logs</b>\n<i>Last {lines} lines</i>",
+                    parse_mode="HTML",
+                )
+            else:
+                await update.message.reply_html(
+                    f"<b>⚠️ Error Logs (Last {lines} lines)</b>\n\n"
+                    f"<pre>{log_content}</pre>"
+                )
+
+            logger.info(f"Error logs sent to owner (last {lines} lines)")
+
+        except Exception as e:
+            logger.error(f"Error in errorlogs command: {e}")
+            await update.message.reply_html(
+                "<b>⚠️ Error</b>\n<i>Failed to retrieve error logs.</i>"
+            )
+
 
 def register_owner_commands(
     application: Application, database_service: DatabaseService
@@ -421,6 +575,10 @@ def register_owner_commands(
     )
     application.add_handler(
         CommandHandler("whitelist", owner_handler.whitelist_command)
+    )
+    application.add_handler(CommandHandler("logs", owner_handler.logs_command))
+    application.add_handler(
+        CommandHandler("errorlogs", owner_handler.errorlogs_command)
     )
 
     logger.info("Owner command handlers registered")
