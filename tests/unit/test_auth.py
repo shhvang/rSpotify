@@ -84,7 +84,7 @@ class TestOwnerAuthorization:
         message_obj.reply_html = AsyncMock()
         message_obj.from_user = user
         message_obj.chat = chat
-        
+
         update = Mock(spec=Update)
         update.message = message_obj
         update.effective_user = user
@@ -119,7 +119,7 @@ class TestOwnerAuthorization:
         message_obj.reply_html = AsyncMock()
         message_obj.from_user = user
         message_obj.chat = chat
-        
+
         update = Mock(spec=Update)
         update.message = message_obj
         update.effective_user = user
@@ -153,13 +153,11 @@ class TestOwnerAuthorization:
         message_obj.reply_html = AsyncMock()
         message_obj.from_user = None
         message_obj.chat = chat
-        
+
         update = Mock(spec=Update)
         update.message = message_obj
         update.effective_user = None
-        context = Mock(spec=ContextTypes.DEFAULT_TYPE)
-
-        # Call decorated function
+        context = Mock(spec=ContextTypes.DEFAULT_TYPE)        # Call decorated function
         result = await decorated_func(update, context)
 
         # Verify original function was NOT called
