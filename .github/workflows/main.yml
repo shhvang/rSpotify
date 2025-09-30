@@ -1,0 +1,273 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[test]"
+        pip install flake8 black mypy
+    
+    - name: Create test environment file
+      run: |
+        echo "TELEGRAM_BOT_TOKEN=test_token" > .env
+        echo "MONGODB_URI=mongodb://localhost:27017/test_db" >> .env
+        echo "ENVIRONMENT=testing" >> .env
+        echo "DEBUG=true" >> .env
+    
+    - name: Lint with flake8
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 rspotify_bot --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 rspotify_bot --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+    
+    - name: Format check with black
+      run: |
+        black --check --diff rspotify_bot tests
+    
+    - name: Type check with mypy
+      run: |
+        mypy rspotify_bot --ignore-missing-imports
+    
+    - name: Run unit tests
+      run: |
+        pytest tests/unit/ -v --cov=rspotify_bot --cov-report=xml
+    
+    - name: Run integration tests
+      run: |
+        pytest tests/integration/ -v
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety
+    
+    - name: Run Bandit security linter
+      run: |
+        bandit -r rspotify_bot -f json -o bandit-report.json
+      continue-on-error: true
+    
+    - name: Check dependencies for known vulnerabilities
+      run: |
+        safety check --json --output safety-report.json
+      continue-on-error: true
+
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build wheel
+    
+    - name: Build package
+      run: |
+        python -m build
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-packages
+        path: dist/
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install Ansible
+      run: |
+        python -m pip install --upgrade pip
+        pip install ansible==2.15.*
+    
+    - name: Setup SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H "${{ secrets.STAGING_HOST }}" >> ~/.ssh/known_hosts
+    
+    - name: Deploy to staging server
+      run: |
+        cd ansible
+        ansible-playbook -i staging_inventory setup.yml --private-key ~/.ssh/deploy_key
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.STAGING_BOT_TOKEN }}
+        MONGODB_URI: ${{ secrets.STAGING_MONGODB_URI }}
+        SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+        SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install Ansible
+      run: |
+        python -m pip install --upgrade pip
+        pip install ansible==2.15.*
+    
+    - name: Setup SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H "${{ secrets.PRODUCTION_HOST }}" >> ~/.ssh/known_hosts
+    
+    - name: Deploy to production server
+      run: |
+        cd ansible
+        ansible-playbook -i production_inventory setup.yml --private-key ~/.ssh/deploy_key
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.PRODUCTION_BOT_TOKEN }}
+        MONGODB_URI: ${{ secrets.PRODUCTION_MONGODB_URI }}
+        SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+        SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+        DUCKDNS_TOKEN: ${{ secrets.DUCKDNS_TOKEN }}
+        DUCKDNS_DOMAIN: ${{ secrets.DUCKDNS_DOMAIN }}
+    
+    - name: Notify deployment success
+      if: success()
+      run: |
+        curl -X POST "https://api.telegram.org/bot${{ secrets.PRODUCTION_BOT_TOKEN }}/sendMessage" \
+        -d "chat_id=${{ secrets.OWNER_TELEGRAM_ID }}" \
+        -d "text=🚀 rSpotify Bot successfully deployed to production!" \
+        -d "parse_mode=Markdown"
+    
+    - name: Notify deployment failure
+      if: failure()
+      run: |
+        curl -X POST "https://api.telegram.org/bot${{ secrets.PRODUCTION_BOT_TOKEN }}/sendMessage" \
+        -d "chat_id=${{ secrets.OWNER_TELEGRAM_ID }}" \
+        -d "text=❌ rSpotify Bot deployment to production failed!" \
+        -d "parse_mode=Markdown"
+
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    environment: production
+    
+    steps:
+    - name: Checkout previous version
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.rollback_commit || 'HEAD~1' }}
+    
+    - name: Set up Python ${{ env.PYTHON_VERSION }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install Ansible
+      run: |
+        python -m pip install --upgrade pip
+        pip install ansible==2.15.*
+    
+    - name: Setup SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H "${{ secrets.PRODUCTION_HOST }}" >> ~/.ssh/known_hosts
+    
+    - name: Rollback production deployment
+      run: |
+        cd ansible
+        ansible-playbook -i production_inventory rollback.yml --private-key ~/.ssh/deploy_key
+    
+    - name: Notify rollback completion
+      run: |
+        curl -X POST "https://api.telegram.org/bot${{ secrets.PRODUCTION_BOT_TOKEN }}/sendMessage" \
+        -d "chat_id=${{ secrets.OWNER_TELEGRAM_ID }}" \
+        -d "text=↩️ rSpotify Bot rolled back to previous version" \
+        -d "parse_mode=Markdown"
