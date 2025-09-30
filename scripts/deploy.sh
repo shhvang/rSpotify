@@ -28,15 +28,15 @@ fi
 chown -R rspotify:rspotify /opt/rspotify-bot
 
 # Setup virtual environment
-cd /opt/rspotify-bot/repo/rspotify-bot
+cd /opt/rspotify-bot/repo
 python3.11 -m venv /opt/rspotify-bot/venv
 source /opt/rspotify-bot/venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 pip install -e .
 
-# Create .env file
-cat > /opt/rspotify-bot/.env << EOF
+# Create .env file in repo directory (where the bot loads from)
+cat > /opt/rspotify-bot/repo/.env << EOF
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
 OWNER_TELEGRAM_ID=${OWNER_TELEGRAM_ID}
 SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
@@ -54,14 +54,14 @@ DUCKDNS_DOMAIN=${DUCKDNS_DOMAIN:-localhost}
 SPOTIFY_REDIRECT_URI=https://${DUCKDNS_DOMAIN:-localhost}/callback
 EOF
 
-chown rspotify:rspotify /opt/rspotify-bot/.env
-chmod 600 /opt/rspotify-bot/.env
+chown rspotify:rspotify /opt/rspotify-bot/repo/.env
+chmod 600 /opt/rspotify-bot/repo/.env
 
 # Setup supervisor
 cat > /etc/supervisor/conf.d/rspotify-bot.conf << 'EOF'
 [program:rspotify-bot]
-command=/opt/rspotify-bot/venv/bin/python -m rspotify_bot.bot
-directory=/opt/rspotify-bot
+command=/opt/rspotify-bot/venv/bin/python /opt/rspotify-bot/repo/rspotify.py
+directory=/opt/rspotify-bot/repo
 user=rspotify
 autostart=true
 autorestart=true
