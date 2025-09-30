@@ -14,21 +14,21 @@ useradd -m -s /bin/bash rspotify || true
 mkdir -p /opt/rspotify-bot/{logs,backups}
 
 # Fix git ownership issue
-git config --global --add safe.directory /opt/rspotify-bot/src
+git config --global --add safe.directory /opt/rspotify-bot/repo
 
 # Clone/update repository
-if [ -d "/opt/rspotify-bot/src" ]; then
-    cd /opt/rspotify-bot/src
+if [ -d "/opt/rspotify-bot/repo" ]; then
+    cd /opt/rspotify-bot/repo
     git pull origin main
 else
-    git clone https://github.com/shhvang/rSpotify.git /opt/rspotify-bot/src
-    git config --global --add safe.directory /opt/rspotify-bot/src
+    git clone https://github.com/shhvang/rSpotify.git /opt/rspotify-bot/repo
+    git config --global --add safe.directory /opt/rspotify-bot/repo
 fi
 
 chown -R rspotify:rspotify /opt/rspotify-bot
 
 # Setup virtual environment
-cd /opt/rspotify-bot/src/rspotify-bot
+cd /opt/rspotify-bot/repo/rspotify-bot
 python3.11 -m venv /opt/rspotify-bot/venv
 source /opt/rspotify-bot/venv/bin/activate
 pip install --upgrade pip
