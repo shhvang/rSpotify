@@ -76,7 +76,10 @@ class TestRSpotifyBot:
 
         await bot.ping_command(mock_update, mock_context)
 
-        # Verify response contains disconnected status
+        # Verify response was sent once (single message with all info)
+        mock_update.message.reply_html.assert_called_once()
+        
+        # Check the single message contains disconnected status
         call_args = mock_update.message.reply_html.call_args
         response_text = call_args[0][0]
         assert "❌ Disconnected" in response_text

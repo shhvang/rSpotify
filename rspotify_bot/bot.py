@@ -181,10 +181,10 @@ class RSpotifyBot:
         if not update.message:
             return
 
-        # Calculate Telegram API response time
-        telegram_start = time.time()
-
-        # Create response message with timings
+        # Calculate total time (will update after sending)
+        total_time_ms = (time.time() - start_time) * 1000
+        
+        # Create single complete response message with all information
         response = (
             f"<b>🏓 Pong!</b>\n\n"
             f"👋 Hello <b>{user.first_name or 'there'}</b>!\n"
@@ -193,21 +193,12 @@ class RSpotifyBot:
             f"⚡ Environment: <code>{Config.ENVIRONMENT}</code>\n\n"
             f"<b>⏱️ Response Timings:</b>\n"
             f"• Database: <code>{db_time_ms:.2f}ms</code>\n"
-        )
-
-        # Send response and measure time
-        await update.message.reply_html(response)
-        telegram_time_ms = (time.time() - telegram_start) * 1000
-        total_time_ms = (time.time() - start_time) * 1000
-
-        # Send timing follow-up
-        timing_msg = (
-            f"• Telegram API: <code>{telegram_time_ms:.2f}ms</code>\n"
             f"• <b>Total:</b> <code>{total_time_ms:.2f}ms</code>\n\n"
             f"<i>Use /help for available commands.</i>"
         )
-
-        await update.message.reply_html(timing_msg)
+        
+        # Send single response with all information
+        await update.message.reply_html(response)
 
     async def start_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
