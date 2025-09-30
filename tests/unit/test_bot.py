@@ -142,12 +142,15 @@ class TestRSpotifyBot:
     async def test_error_handler_notifies_owner(self, bot, mock_update, mock_context):
         """Test error handler notifies bot owner."""
         mock_context.error = Exception("Test error")
-        mock_context.bot.send_message = AsyncMock()
+        
+        # Mock notification service
+        bot.notification_service = Mock()
+        bot.notification_service.send_error_report = AsyncMock()
 
         await bot.error_handler(mock_update, mock_context)
 
-        # Verify owner notification was sent
-        mock_context.bot.send_message.assert_called_once()
-        call_args = mock_context.bot.send_message.call_args
-        assert call_args[1]["chat_id"] == "999"
-        assert "Bot Error Alert" in call_args[1]["text"]
+        # Verify error report was sent
+        bot.notification_service.send_error_report.assert_called_once()
+        call_args = bot.notification_service.send_error_report.call_args
+        # Verify the error and context were passed
+        assert call_args[0][0] == mock_context.error
