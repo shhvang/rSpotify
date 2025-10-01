@@ -4,6 +4,7 @@ Tests OAuth callback endpoint, token exchange, and database integration.
 These tests use mocked Spotify API responses but real database operations.
 """
 
+import os
 import pytest
 import asyncio
 from unittest.mock import patch, AsyncMock
@@ -12,10 +13,17 @@ from datetime import datetime, timedelta
 # Test configuration
 pytest_plugins = ('pytest_asyncio',)
 
+# Skip tests if Spotify credentials not configured (e.g., in CI/CD)
+skip_if_no_credentials = pytest.mark.skipif(
+    not os.getenv('SPOTIFY_CLIENT_ID') or not os.getenv('SPOTIFY_CLIENT_SECRET'),
+    reason="Spotify credentials not configured"
+)
+
 
 class TestOAuthIntegration:
     """Integration tests for complete OAuth flow."""
 
+    @skip_if_no_credentials
     @pytest.mark.asyncio
     async def test_oauth_callback_success_flow(self):
         """Test successful OAuth callback with token exchange."""
@@ -72,6 +80,7 @@ class TestOAuthIntegration:
         value = await temp_storage.get("test_key")
         assert value is None
 
+    @skip_if_no_credentials
     @pytest.mark.asyncio
     async def test_authorization_url_generation(self):
         """Test Spotify authorization URL contains required parameters."""
@@ -92,6 +101,7 @@ class TestOAuthIntegration:
 class TestOAuthErrorHandling:
     """Integration tests for OAuth error scenarios."""
 
+    @skip_if_no_credentials
     @pytest.mark.asyncio
     async def test_invalid_authorization_code(self):
         """Test handling of invalid authorization code."""
