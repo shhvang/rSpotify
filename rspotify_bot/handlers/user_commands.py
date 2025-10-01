@@ -1,9 +1,10 @@
 """
 User command handlers for rSpotify Bot.
-Handles user-facing commands like /logout for data privacy.
+Handles user-facing commands like /login, /logout for Spotify authentication and data privacy.
 """
 
 import logging
+import secrets
 from typing import Any, cast
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
@@ -11,8 +12,115 @@ from telegram.ext import ContextTypes, CallbackQueryHandler
 from ..services.database import DatabaseService
 from ..services.repository import UserRepository, RepositoryError
 from ..services.validation import escape_html
+from ..services.auth import SpotifyAuthService
+from ..services.middleware import get_temporary_storage
 
 logger = logging.getLogger(__name__)
+
+
+async def handle_login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handle /login command to initiate Spotify OAuth flow.
+
+    Generates a secure state parameter, stores it with the user's telegram_id,
+    and sends the Spotify authorization URL to the user.
+
+    Args:
+        update: Telegram update object
+        context: Telegram context object
+    """
+    user = update.effective_user
+
+    if not user:
+        return
+
+    telegram_id = user.id
+    user_name = escape_html(user.first_name or "User")
+
+    logger.info(f"User {telegram_id} initiated Spotify login flow")
+
+    if not update.message:
+        return
+
+    try:
+        # Check if user already has Spotify connected
+        db_service = cast(DatabaseService, context.bot_data.get("db_service"))
+        if not db_service or db_service.database is None:
+            await update.message.reply_html(
+                "<b>❌ Error</b>\n\n"
+                "Service temporarily unavailable. Please try again later."
+            )
+            return
+
+        user_repo = UserRepository(db_service.database)
+        existing_user = await user_repo.get_user(telegram_id)
+
+        if existing_user and existing_user.get("spotify", {}).get("access_token"):
+            await update.message.reply_html(
+                f"<b>ℹ️ Already Connected</b>\n\n"
+                f"Hello <b>{user_name}</b>!\n\n"
+                f"Your Spotify account is already connected.\n"
+                f"Use /logout to disconnect and connect a different account."
+            )
+            return
+
+        # Generate secure state parameter
+        state = secrets.token_urlsafe(16)
+
+        # Store state with telegram_id in temporary storage (5 minutes expiry)
+        temp_storage = get_temporary_storage()
+        await temp_storage.set(f"oauth_state_{state}", telegram_id, expiry_seconds=300)
+
+        # Create Spotify auth service and get authorization URL
+        auth_service = SpotifyAuthService()
+        auth_url = auth_service.get_authorization_url(state)
+
+        # Send authorization URL to user
+        message = (
+            f"<b>🎵 Connect Your Spotify Account</b>\n\n"
+            f"Hello <b>{user_name}</b>!\n\n"
+            f"To use rSpotify Bot, you need to authorize access to your Spotify account.\n\n"
+            f"<b>What you're granting:</b>\n"
+            f"• View your currently playing track\n"
+            f"• Control playback (play, pause, skip)\n"
+            f"• View playback state\n"
+            f"• Modify your playlists\n\n"
+            f"<b>👉 Click the link below to authorize:</b>\n"
+            f"<a href='{auth_url}'>Authorize Spotify</a>\n\n"
+            f"<i>⚠️ This link expires in 5 minutes for security.</i>\n\n"
+            f"After authorization, you'll be redirected to a success page."
+        )
+
+        await update.message.reply_html(message, disable_web_page_preview=True)
+
+        logger.info(f"Sent authorization URL to user {telegram_id} with state: {state}")
+
+    except ValueError as e:
+        logger.error(f"Configuration error in /login: {e}")
+        await update.message.reply_html(
+            "<b>❌ Configuration Error</b>\n\n"
+            "Spotify OAuth is not properly configured. Please contact the bot administrator."
+        )
+    except Exception as e:
+        logger.error(f"Error in /login handler: {e}")
+        await update.message.reply_html(
+            "<b>❌ Error</b>\n\n"
+            "An unexpected error occurred. Please try again later."
+        )
+
+        # Notify owner of error
+        try:
+            from ..config import config
+
+            await context.bot.send_message(
+                chat_id=config.OWNER_TELEGRAM_ID,
+                text=f"<b>⚠️ Error in /login</b>\n\n"
+                f"User: {telegram_id}\n"
+                f"Error: {escape_html(str(e))}",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
 
 
 async def handle_logout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -125,6 +233,21 @@ async def handle_logout_callback(
 
             # Create repository instance
             user_repo = UserRepository(db_service.database)
+
+            # Get user data to retrieve Spotify tokens for revocation
+            user_data = await user_repo.get_user(telegram_id)
+
+            # Revoke Spotify tokens if present
+            if user_data and user_data.get("spotify"):
+                try:
+                    auth_service = SpotifyAuthService()
+                    access_token = user_data["spotify"].get("access_token")
+                    if access_token:
+                        await auth_service.revoke_token(access_token)
+                        logger.info(f"Revoked Spotify tokens for user {telegram_id}")
+                except Exception as e:
+                    # Continue with deletion even if revocation fails
+                    logger.warning(f"Failed to revoke tokens for user {telegram_id}: {e}")
 
             # Delete user data (cascade delete handles all associated data)
             success = await user_repo.delete_user(telegram_id)
@@ -285,6 +408,7 @@ def register_user_command_handlers(application: Any) -> None:
     from telegram.ext import CommandHandler
 
     # Register command handlers
+    application.add_handler(CommandHandler("login", handle_login))
     application.add_handler(CommandHandler("logout", handle_logout))
     application.add_handler(CommandHandler("exportdata", handle_export_data))
 

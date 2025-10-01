@@ -1,10 +1,14 @@
 """
 Middleware services for rSpotify Bot.
-Provides rate limiting, blacklist checking, and other protective measures.
+Provides rate limiting, blacklist checking, authentication, and other protective measures.
 """
 
 import logging
-from typing import Callable, Dict, Any
+import secrets
+import asyncio
+from typing import Callable, Dict, Any, Optional
+from datetime import datetime, timedelta
+from functools import wraps
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -246,3 +250,263 @@ def create_protection_wrapper(database_service: DatabaseService) -> Callable:
         return decorator
 
     return protection_wrapper
+
+
+class TemporaryStorage:
+    """Thread-safe temporary storage for OAuth state parameters with TTL."""
+
+    def __init__(self):
+        """Initialize temporary storage."""
+        self._storage: Dict[str, Dict[str, Any]] = {}
+        self._lock = asyncio.Lock()
+        self._cleanup_task: Optional[asyncio.Task] = None
+
+    async def start_cleanup_task(self):
+        """Start background cleanup task for expired entries."""
+        if self._cleanup_task is None or self._cleanup_task.done():
+            self._cleanup_task = asyncio.create_task(self._cleanup_loop())
+            logger.info("Temporary storage cleanup task started")
+
+    async def _cleanup_loop(self):
+        """Background task to clean up expired entries every 60 seconds."""
+        while True:
+            try:
+                await asyncio.sleep(60)  # Run every minute
+                await self._cleanup_expired()
+            except asyncio.CancelledError:
+                logger.info("Temporary storage cleanup task cancelled")
+                break
+            except Exception as e:
+                logger.error(f"Error in cleanup loop: {e}")
+
+    async def _cleanup_expired(self):
+        """Remove expired entries from storage."""
+        async with self._lock:
+            now = datetime.utcnow()
+            expired_keys = [
+                key
+                for key, data in self._storage.items()
+                if data["expires_at"] < now
+            ]
+            for key in expired_keys:
+                del self._storage[key]
+            if expired_keys:
+                logger.debug(f"Cleaned up {len(expired_keys)} expired state(s)")
+
+    async def set(self, key: str, value: Any, expiry_seconds: int = 300) -> None:
+        """
+        Store a value with expiry time.
+
+        Args:
+            key: Storage key
+            value: Value to store
+            expiry_seconds: Time to live in seconds (default: 300 = 5 minutes)
+        """
+        async with self._lock:
+            expires_at = datetime.utcnow() + timedelta(seconds=expiry_seconds)
+            self._storage[key] = {"value": value, "expires_at": expires_at}
+            logger.debug(f"Stored key '{key}' with {expiry_seconds}s TTL")
+
+    async def get(self, key: str) -> Optional[Any]:
+        """
+        Retrieve a value by key.
+
+        Args:
+            key: Storage key
+
+        Returns:
+            Stored value if found and not expired, None otherwise
+        """
+        async with self._lock:
+            data = self._storage.get(key)
+            if not data:
+                return None
+
+            # Check expiry
+            if data["expires_at"] < datetime.utcnow():
+                del self._storage[key]
+                logger.debug(f"Key '{key}' expired and removed")
+                return None
+
+            return data["value"]
+
+    async def delete(self, key: str) -> bool:
+        """
+        Delete a key from storage.
+
+        Args:
+            key: Storage key
+
+        Returns:
+            True if key was deleted, False if not found
+        """
+        async with self._lock:
+            if key in self._storage:
+                del self._storage[key]
+                logger.debug(f"Deleted key '{key}'")
+                return True
+            return False
+
+    async def stop_cleanup_task(self):
+        """Stop the cleanup background task."""
+        if self._cleanup_task and not self._cleanup_task.done():
+            self._cleanup_task.cancel()
+            try:
+                await self._cleanup_task
+            except asyncio.CancelledError:
+                pass
+            logger.info("Temporary storage cleanup task stopped")
+
+
+# Global temporary storage instance
+_temporary_storage: Optional[TemporaryStorage] = None
+
+
+def get_temporary_storage() -> TemporaryStorage:
+    """
+    Get or create the global temporary storage instance.
+
+    Returns:
+        TemporaryStorage instance
+    """
+    global _temporary_storage
+    if _temporary_storage is None:
+        _temporary_storage = TemporaryStorage()
+    return _temporary_storage
+
+
+def require_spotify_auth(func: Callable) -> Callable:
+    """
+    Decorator to require Spotify authentication for command handlers.
+
+    Checks if user has valid Spotify tokens and automatically refreshes if needed.
+
+    Args:
+        func: The command handler function to wrap
+
+    Returns:
+        Wrapped function that checks authentication
+    """
+
+    @wraps(func)
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Any:
+        """
+        Wrapper function that checks Spotify authentication.
+
+        Args:
+            update: Telegram update object
+            context: Bot context
+
+        Returns:
+            Result of wrapped function if authenticated, None otherwise
+        """
+        from .repository import UserRepository, RepositoryError
+        from .database import DatabaseService
+        from typing import cast
+
+        user = update.effective_user
+
+        if not user:
+            logger.error("No user in update")
+            return None
+
+        if not update.message:
+            logger.error("No message in update")
+            return None
+
+        telegram_id = user.id
+
+        try:
+            # Get database service
+            db_service = cast(DatabaseService, context.bot_data.get("db_service"))
+            if not db_service or db_service.database is None:
+                logger.error("Database service unavailable")
+                await update.message.reply_html(
+                    "<b>❌ Error</b>\n\n"
+                    "Service temporarily unavailable. Please try again later."
+                )
+                return None
+
+            # Get user from database
+            user_repo = UserRepository(db_service.database)
+            user_data = await user_repo.get_user(telegram_id)
+
+            if not user_data:
+                await update.message.reply_html(
+                    "<b>🔐 Authentication Required</b>\n\n"
+                    "You need to connect your Spotify account first.\n"
+                    "Use /login to get started."
+                )
+                logger.info(f"User {telegram_id} not authenticated - no user record")
+                return None
+
+            # Check if user has Spotify tokens
+            spotify_data = user_data.get("spotify")
+            if not spotify_data or not spotify_data.get("access_token"):
+                await update.message.reply_html(
+                    "<b>🔐 Authentication Required</b>\n\n"
+                    "You need to connect your Spotify account first.\n"
+                    "Use /login to get started."
+                )
+                logger.info(f"User {telegram_id} not authenticated - no tokens")
+                return None
+
+            # Check token expiration and refresh if needed
+            expires_at = spotify_data.get("expires_at")
+            if expires_at:
+                # Check if token is expired or will expire in next 5 minutes
+                if expires_at < datetime.utcnow() + timedelta(minutes=5):
+                    logger.info(
+                        f"Token expired or expiring soon for user {telegram_id}, attempting refresh"
+                    )
+
+                    # Import here to avoid circular dependency
+                    from .auth import SpotifyAuthService
+
+                    auth_service = SpotifyAuthService()
+
+                    try:
+                        # Refresh token
+                        new_tokens = await auth_service.refresh_access_token(
+                            spotify_data["refresh_token"]
+                        )
+
+                        # Update tokens in database
+                        await user_repo.update_spotify_tokens(
+                            telegram_id,
+                            new_tokens["access_token"],
+                            new_tokens["refresh_token"],
+                            new_tokens["expires_at"],
+                        )
+
+                        logger.info(f"Successfully refreshed token for user {telegram_id}")
+
+                    except Exception as e:
+                        logger.error(f"Failed to refresh token for user {telegram_id}: {e}")
+                        await update.message.reply_html(
+                            "<b>❌ Authentication Error</b>\n\n"
+                            "Your Spotify session has expired and could not be refreshed.\n"
+                            "Please use /login to reconnect your account."
+                        )
+                        return None
+
+            # Authentication successful, proceed with command
+            logger.debug(f"User {telegram_id} authenticated successfully")
+            return await func(update, context)
+
+        except RepositoryError as e:
+            logger.error(f"Repository error in auth middleware: {e}")
+            await update.message.reply_html(
+                "<b>❌ Error</b>\n\n"
+                f"Database error: {e}\nPlease try again later."
+            )
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error in auth middleware: {e}")
+            await update.message.reply_html(
+                "<b>❌ Error</b>\n\n"
+                "An unexpected error occurred. Please try again later."
+            )
+            return None
+
+    return wrapper
