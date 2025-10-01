@@ -11,30 +11,95 @@ import sys
 import ssl
 import logging
 import asyncio
+import traceback
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
-from dotenv import load_dotenv
 
-from aiohttp import web
-import certbot.main
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Add parent directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from rspotify_bot.config import Config
-from rspotify_bot.services.database import DatabaseService
-from rspotify_bot.services.middleware import get_temporary_storage
-
-# Configure logging
+# Configure logging FIRST before any other imports
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stderr),
+        logging.FileHandler('/opt/rspotify-bot/logs/oauth_startup.log', mode='a')
+    ]
 )
 logger = logging.getLogger(__name__)
+
+logger.info('=' * 80)
+logger.info('Starting OAuth callback service...')
+logger.info(f'Python version: {sys.version}')
+logger.info(f'Python executable: {sys.executable}')
+logger.info(f'Current working directory: {os.getcwd()}')
+logger.info(f'Script location: {os.path.abspath(__file__)}')
+logger.info(f'sys.path: {sys.path}')
+logger.info('=' * 80)
+
+try:
+    logger.info('Loading dotenv...')
+    from dotenv import load_dotenv
+    load_dotenv()
+    logger.info('✓ dotenv loaded')
+except Exception as e:
+    logger.error(f'Failed to load dotenv: {e}', exc_info=True)
+    sys.exit(1)
+
+try:
+    logger.info('Adding parent directory to path...')
+    parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    logger.info(f'Parent directory: {parent_dir}')
+    sys.path.insert(0, parent_dir)
+    logger.info('✓ Parent directory added to path')
+except Exception as e:
+    logger.error(f'Failed to add parent directory: {e}', exc_info=True)
+    sys.exit(1)
+
+try:
+    logger.info('Importing aiohttp...')
+    from aiohttp import web
+    logger.info('✓ aiohttp imported')
+except Exception as e:
+    logger.error(f'Failed to import aiohttp: {e}', exc_info=True)
+    sys.exit(1)
+
+try:
+    logger.info('Importing certbot...')
+    import certbot.main
+    logger.info('✓ certbot imported')
+except Exception as e:
+    logger.error(f'Failed to import certbot: {e}', exc_info=True)
+    sys.exit(1)
+
+try:
+    logger.info('Importing rspotify_bot.config...')
+    from rspotify_bot.config import Config
+    logger.info('✓ Config imported')
+except Exception as e:
+    logger.error(f'Failed to import Config: {e}', exc_info=True)
+    logger.error(f'Traceback: {traceback.format_exc()}')
+    sys.exit(1)
+
+try:
+    logger.info('Importing rspotify_bot.services.database...')
+    from rspotify_bot.services.database import DatabaseService
+    logger.info('✓ DatabaseService imported')
+except Exception as e:
+    logger.error(f'Failed to import DatabaseService: {e}', exc_info=True)
+    logger.error(f'Traceback: {traceback.format_exc()}')
+    sys.exit(1)
+
+try:
+    logger.info('Importing rspotify_bot.services.middleware...')
+    from rspotify_bot.services.middleware import get_temporary_storage
+    logger.info('✓ get_temporary_storage imported')
+except Exception as e:
+    logger.error(f'Failed to import get_temporary_storage: {e}', exc_info=True)
+    logger.error(f'Traceback: {traceback.format_exc()}')
+    sys.exit(1)
+
+logger.info('All imports successful!')
+logger.info('=' * 80)
 
 # Global services
 db_service: Optional[DatabaseService] = None
@@ -402,24 +467,51 @@ async def run_https_server(app: web.Application, cert_path: str, key_path: str, 
 
 async def main():
     """Main entry point for the OAuth callback service."""
-    logger.info('Starting rSpotify OAuth Callback Service (aiohttp + certbot)')
-    
-    # Create application
-    app = create_app()
-    
-    # Initialize services
-    if not await init_services():
-        logger.error('Failed to initialize services, exiting')
-        sys.exit(1)
-    
-    # Setup SSL certificates
-    cert_path, key_path = await setup_ssl_certificates()
-    
-    runners = []
-    
     try:
+        logger.info('=' * 80)
+        logger.info('Starting rSpotify OAuth Callback Service (aiohttp + certbot)')
+        logger.info('=' * 80)
+        
+        # Validate configuration
+        logger.info('Validating configuration...')
+        logger.info(f'DOMAIN: {Config.DOMAIN}')
+        logger.info(f'CERTBOT_EMAIL: {Config.CERTBOT_EMAIL}')
+        logger.info(f'MONGODB_URI: {"*" * 20 if Config.MONGODB_URI else "NOT SET"}')
+        logger.info(f'BOT_USERNAME: {Config.BOT_USERNAME}')
+        
+        if not Config.DOMAIN:
+            logger.error('DOMAIN environment variable is not set!')
+            sys.exit(1)
+        
+        if not Config.CERTBOT_EMAIL:
+            logger.error('CERTBOT_EMAIL environment variable is not set!')
+            sys.exit(1)
+        
+        logger.info('✓ Configuration validated')
+        
+        # Create application
+        logger.info('Creating aiohttp application...')
+        app = create_app()
+        logger.info('✓ Application created')
+        
+        # Initialize services
+        logger.info('Initializing services...')
+        if not await init_services():
+            logger.error('Failed to initialize services, exiting')
+            sys.exit(1)
+        logger.info('✓ Services initialized')
+        
+        # Setup SSL certificates
+        logger.info('Setting up SSL certificates...')
+        cert_path, key_path = await setup_ssl_certificates()
+        logger.info(f'SSL certificate path: {cert_path}')
+        logger.info(f'SSL key path: {key_path}')
+        
+        runners = []
+        
         if cert_path and key_path:
             # Run HTTPS server on port 443
+            logger.info('Starting HTTPS server on port 443...')
             https_runner = await run_https_server(app, cert_path, key_path, port=443)
             runners.append(https_runner)
             logger.info('✅ HTTPS server running on port 443')
@@ -427,21 +519,29 @@ async def main():
             logger.warning('SSL certificates not available - running HTTP only for ACME challenges')
         
         # Always run HTTP server on port 80 for ACME challenges and redirects
+        logger.info('Starting HTTP server on port 80...')
         http_runner = await run_http_server(app, port=80)
         runners.append(http_runner)
         logger.info('✅ HTTP server running on port 80')
         
+        logger.info('=' * 80)
         logger.info('🚀 OAuth callback service is ready!')
         logger.info(f'   HTTPS: https://{Config.DOMAIN}/spotify/callback')
-        logger.info(f'   HTTP:  http://{Config.DOMAIN} (ACME challenges)')
+        logger.info(f'   HTTP:  http://{Config.DOMAIN}/.well-known/acme-challenge/')
+        logger.info('=' * 80)
         
         # Keep running until interrupted
         await asyncio.Event().wait()
         
     except KeyboardInterrupt:
         logger.info('Received shutdown signal...')
+    except Exception as e:
+        logger.critical(f'FATAL ERROR in main loop: {e}', exc_info=True)
+        logger.critical(f'Traceback: {traceback.format_exc()}')
+        raise
     finally:
         # Cleanup
+        logger.info('Cleaning up...')
         for runner in runners:
             await runner.cleanup()
         await cleanup_services()
@@ -450,6 +550,11 @@ async def main():
 
 if __name__ == '__main__':
     try:
+        logger.info('Calling asyncio.run(main())...')
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info('Shutdown complete')
+    except Exception as e:
+        logger.critical(f'FATAL ERROR in main: {e}', exc_info=True)
+        logger.critical(f'Traceback: {traceback.format_exc()}')
+        sys.exit(1)
