@@ -118,10 +118,21 @@ async def init_services():
             return False
         logger.info('Database service initialized and connected')
 
-        # Initialize temporary storage
+        # Initialize temporary storage with MongoDB for cross-process sharing
         temp_storage = get_temporary_storage()
+        temp_storage._database = db_service.database
+        temp_storage._use_mongodb = True
+        logger.info('Temporary storage initialized with MongoDB backend')
+        
+        # Create TTL index on temp_storage collection
+        await db_service.database.temp_storage.create_index(
+            "expires_at",
+            expireAfterSeconds=0
+        )
+        logger.info('Created TTL index on temp_storage collection')
+        
         await temp_storage.start_cleanup_task()
-        logger.info('Temporary storage initialized')
+        logger.info('Temporary storage cleanup task started')
 
         return True
     except Exception as e:

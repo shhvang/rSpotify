@@ -52,8 +52,21 @@ class RSpotifyBot:
             logger.error("Failed to connect to database. Exiting.")
             return
 
-        # Initialize temporary storage for OAuth state parameters
+        # Initialize temporary storage for OAuth state parameters with MongoDB
+        # This allows state sharing between bot and OAuth service processes
         temp_storage = get_temporary_storage()
+        # Reinitialize with MongoDB database for cross-process sharing
+        temp_storage._database = self.db_service.database
+        temp_storage._use_mongodb = True
+        logger.info("Temporary storage initialized with MongoDB for cross-process state sharing")
+        
+        # Create TTL index on temp_storage collection
+        await self.db_service.database.temp_storage.create_index(
+            "expires_at",
+            expireAfterSeconds=0
+        )
+        logger.info("Created TTL index on temp_storage collection")
+        
         await temp_storage.start_cleanup_task()
         logger.info("Temporary storage cleanup task started")
 
