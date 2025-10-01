@@ -5,7 +5,7 @@ echo "🚀 Starting rSpotify Bot deployment..."
 
 # Update system
 apt-get update -y
-apt-get install -y python3.11 python3.11-venv python3-pip git supervisor
+apt-get install -y python3.11 python3.11-venv python3-pip git supervisor libcap2-bin
 
 # Create app user
 useradd -m -s /bin/bash rspotify || true
@@ -34,6 +34,9 @@ source /opt/rspotify-bot/venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 pip install -e .
+
+# Grant Python capability to bind to privileged ports (80, 443) without root
+setcap 'cap_net_bind_service=+ep' /opt/rspotify-bot/venv/bin/python3.11
 
 # Create .env file in repo directory (where the bot loads from)
 cat > /opt/rspotify-bot/repo/.env << EOF
@@ -73,6 +76,7 @@ EOF
 
 # Setup supervisor for aiohttp OAuth callback service (Story 1.4)
 # This service handles SSL automatically via certbot - no Nginx needed
+# Python has CAP_NET_BIND_SERVICE capability, so rspotify user can bind to ports 80/443
 cat > /etc/supervisor/conf.d/rspotify-oauth.conf << 'EOF'
 [program:rspotify-oauth]
 command=/opt/rspotify-bot/venv/bin/python /opt/rspotify-bot/repo/web_callback/app.py

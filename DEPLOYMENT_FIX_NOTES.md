@@ -94,5 +94,38 @@ The next deployment will:
 
 ---
 
-**Status:** ✅ Fixed and pushed to main branch (commit 2f8d07a)
+**Status:** ✅ Fixed and pushed to main branch (commit 2f8d07a, 586c7ab)
 **Next Action:** Add GitHub secrets (`BOT_USERNAME`, `CERTBOT_EMAIL`) then trigger deployment
+
+---
+
+## Update: Port Binding Fix (October 1, 2025)
+
+### Additional Problem Discovered
+After initial deployment fix, the `rspotify-oauth` service was still failing with a spawn error:
+```
+rspotify-oauth: ERROR (not running)
+rspotify-oauth: ERROR (spawn error)
+```
+
+**Root Cause:** The aiohttp OAuth service needs to bind to **privileged ports 80 and 443** for SSL certificate provisioning and HTTPS traffic. By default, only root can bind to ports < 1024.
+
+### Solution: Linux Capabilities
+Instead of running the service as root (security risk), we use Linux capabilities to grant the Python binary permission to bind to privileged ports:
+
+```bash
+# Install libcap2-bin package
+apt-get install -y libcap2-bin
+
+# Grant Python the CAP_NET_BIND_SERVICE capability
+setcap 'cap_net_bind_service=+ep' /opt/rspotify-bot/venv/bin/python3.11
+```
+
+This allows the `rspotify` user (non-root) to safely bind to ports 80 and 443.
+
+### Changes Made
+- ✅ Added `libcap2-bin` to apt package list
+- ✅ Added `setcap` command after pip install
+- ✅ Service continues to run as `rspotify` user (secure)
+
+**Status:** ✅ Fixed in commit [pending]
