@@ -39,26 +39,19 @@ class TestOAuthIntegration:
         await temp_storage.set(f"oauth_state_{test_state}", test_telegram_id, 300)
         
         # Mock Spotify API response
-        from unittest.mock import MagicMock
+        async def mock_json():
+            return {
+                "access_token": "mock_access_token",
+                "refresh_token": "mock_refresh_token",
+                "expires_in": 3600,
+                "token_type": "Bearer"
+            }
         
-        mock_response = MagicMock()
-        mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "access_token": "mock_access_token",
-            "refresh_token": "mock_refresh_token",
-            "expires_in": 3600,
-            "token_type": "Bearer"
-        })
-        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_response.__aexit__ = AsyncMock(return_value=None)
+        mock_response = AsyncMock()
+        mock_response.status_code = 200
+        mock_response.json = mock_json
         
-        # Create mock session
-        mock_session = MagicMock()
-        mock_session.post = MagicMock(return_value=mock_response)
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock(return_value=None)
-        
-        with patch('rspotify_bot.services.auth.aiohttp.ClientSession', return_value=mock_session):
+        with patch('httpx.AsyncClient.post', return_value=mock_response):
             auth_service = SpotifyAuthService()
             tokens = await auth_service.exchange_code_for_tokens("mock_code")
             

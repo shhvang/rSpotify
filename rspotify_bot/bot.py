@@ -52,24 +52,8 @@ class RSpotifyBot:
             logger.error("Failed to connect to database. Exiting.")
             return
 
-        # Initialize temporary storage for OAuth state parameters with MongoDB
-        # This allows state sharing between bot and OAuth service processes
+        # Initialize temporary storage for OAuth state parameters
         temp_storage = get_temporary_storage()
-        # Reinitialize with MongoDB database for cross-process sharing
-        temp_storage._database = self.db_service.database
-        temp_storage._use_mongodb = True
-        logger.info("Temporary storage initialized with MongoDB for cross-process state sharing")
-        
-        # Create TTL index on temp_storage collection (Motor is async)
-        try:
-            await self.db_service.database.temp_storage.create_index(
-                "expires_at",
-                expireAfterSeconds=0
-            )
-            logger.info("Created TTL index on temp_storage collection")
-        except Exception as e:
-            logger.warning(f"Failed to create TTL index (may already exist): {e}")
-        
         await temp_storage.start_cleanup_task()
         logger.info("Temporary storage cleanup task started")
 
@@ -262,7 +246,6 @@ class RSpotifyBot:
             code_id = message_text.split()[1]
             
             # Handle OAuth code retrieval and token exchange
-            # Don't show welcome message - OAuth handler will show success/error
             await self._handle_oauth_code(update, code_id, user.id)
             return
 
@@ -312,7 +295,7 @@ class RSpotifyBot:
                 return
             
             # Retrieve auth code from database
-            code_doc = await self.db_service.database.oauth_codes.find_one({"_id": obj_id})
+            code_doc = self.db_service.database.oauth_codes.find_one({"_id": obj_id})
             
             if not code_doc:
                 await update.message.reply_text(
@@ -320,7 +303,7 @@ class RSpotifyBot:
                 )
                 return
             
-            auth_code = code_doc.get("auth_code")
+            auth_code = code_doc.get("authCode")
             if not auth_code:
                 await update.message.reply_text(
                     "❌ Invalid authorization code. Please use /login to try again."
@@ -341,20 +324,20 @@ class RSpotifyBot:
                     "❌ Failed to exchange authorization code for tokens. Please try /login again."
                 )
                 # Delete used code
-                await self.db_service.database.oauth_codes.delete_one({"_id": obj_id})
+                self.db_service.database.oauth_codes.delete_one({"_id": obj_id})
                 return
             
             # Store tokens in database
             user_repo = UserRepository(self.db_service.database)
-            success = await user_repo.update_spotify_tokens(
+            success = await user_repo.store_spotify_tokens(
                 telegram_id,
                 tokens["access_token"],
                 tokens["refresh_token"],
-                tokens["expires_at"]
+                tokens["expires_in"]
             )
             
             # Delete used code from database
-            await self.db_service.database.oauth_codes.delete_one({"_id": obj_id})
+            self.db_service.database.oauth_codes.delete_one({"_id": obj_id})
             
             if success:
                 await status_message.edit_text(

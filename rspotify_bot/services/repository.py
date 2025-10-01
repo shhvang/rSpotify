@@ -1,13 +1,12 @@
 """
 Repository layer for rSpotify Bot database operations.
 Implements repository pattern for clean data access abstraction.
-Uses Motor (async MongoDB driver).
 """
 
 import logging
 from typing import Optional, Dict, Any, cast
 from datetime import datetime, timedelta
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.database import Database
 from pymongo.errors import DuplicateKeyError
 
 from .encryption import get_encryption_service
@@ -25,7 +24,7 @@ class RepositoryError(Exception):
 class UserRepository:
     """Repository for user data operations."""
 
-    def __init__(self, database: AsyncIOMotorDatabase):  # type: ignore
+    def __init__(self, database: Database):
         """
         Initialize user repository.
 
@@ -84,7 +83,7 @@ class UserRepository:
                 "updated_at": datetime.utcnow(),
             }
 
-            await self.collection.insert_one(user_doc)
+            self.collection.insert_one(user_doc)
             logger.info(f"Created user record for telegram_id: {telegram_id}")
             return True
 
@@ -114,7 +113,7 @@ class UserRepository:
         try:
             telegram_id = validate_telegram_id(telegram_id)
 
-            user = await self.collection.find_one({"telegram_id": telegram_id})
+            user = self.collection.find_one({"telegram_id": telegram_id})
 
             if not user:
                 return None
@@ -184,17 +183,14 @@ class UserRepository:
             # Add updated_at timestamp
             updates["updated_at"] = datetime.utcnow()
 
+            # Use upsert to create user if doesn't exist
             result = await self.collection.update_one(
-                {"telegram_id": telegram_id}, {"$set": updates}
+                {"telegram_id": telegram_id}, 
+                {"$set": updates},
+                upsert=True
             )
 
-            if result.modified_count == 0:
-                logger.warning(
-                    f"No user found to update for telegram_id: {telegram_id}"
-                )
-                return False
-
-            logger.info(f"Updated user {telegram_id}")
+            logger.info(f"Updated user {telegram_id} (matched: {result.matched_count}, modified: {result.modified_count}, upserted: {result.upserted_id})")
             return True
 
         except ValidationError as e:
@@ -221,7 +217,7 @@ class UserRepository:
             telegram_id = validate_telegram_id(telegram_id)
 
             # Delete user record
-            user_result = await self.collection.delete_one({"telegram_id": telegram_id})
+            user_result = self.collection.delete_one({"telegram_id": telegram_id})
 
             if user_result.deleted_count == 0:
                 logger.warning(
@@ -230,7 +226,7 @@ class UserRepository:
                 return False
 
             # Cascade delete from other collections
-            await self.db.usage_logs.delete_many({"telegram_id": telegram_id})
+            self.db.usage_logs.delete_many({"telegram_id": telegram_id})
 
             logger.info(f"Deleted user {telegram_id} and all associated data")
             return True
@@ -254,7 +250,7 @@ class UserRepository:
         """
         try:
             telegram_id = validate_telegram_id(telegram_id)
-            return await self.collection.count_documents({"telegram_id": telegram_id}) > 0
+            return self.collection.count_documents({"telegram_id": telegram_id}) > 0
         except Exception as e:
             logger.error(f"Error checking user existence: {e}")
             return False
@@ -295,7 +291,7 @@ class UserRepository:
             Total user count
         """
         try:
-            return await self.collection.count_documents({})
+            return self.collection.count_documents({})
         except Exception as e:
             logger.error(f"Error getting user count: {e}")
             return 0
@@ -304,7 +300,7 @@ class UserRepository:
 class SearchCacheRepository:
     """Repository for search cache operations."""
 
-    def __init__(self, database: AsyncIOMotorDatabase):  # type: ignore
+    def __init__(self, database: Database):
         """
         Initialize search cache repository.
 
@@ -325,7 +321,7 @@ class SearchCacheRepository:
             Cached Spotify track ID or None
         """
         try:
-            result = await self.collection.find_one({"query_string": query})
+            result = self.collection.find_one({"query_string": query})
             if result:
                 logger.debug(f"Cache hit for query: {query}")
                 return cast(Optional[str], result.get("spotify_track_id"))
@@ -352,7 +348,7 @@ class SearchCacheRepository:
                 "created_at": datetime.utcnow(),
             }
 
-            await self.collection.replace_one({"query_string": query}, cache_doc, upsert=True)
+            self.collection.replace_one({"query_string": query}, cache_doc, upsert=True)
 
             logger.debug(f"Cached result for query: {query}")
             return True
@@ -368,7 +364,7 @@ class SearchCacheRepository:
             Number of entries deleted
         """
         try:
-            result = await self.collection.delete_many({})
+            result = self.collection.delete_many({})
             logger.info(f"Cleared {result.deleted_count} cache entries")
             return result.deleted_count
         except Exception as e:
@@ -379,7 +375,7 @@ class SearchCacheRepository:
 class UsageLogsRepository:
     """Repository for usage logs operations."""
 
-    def __init__(self, database: AsyncIOMotorDatabase):  # type: ignore
+    def __init__(self, database: Database):
         """
         Initialize usage logs repository.
 
@@ -418,7 +414,7 @@ class UsageLogsRepository:
             if extra_data:
                 log_doc.update(extra_data)
 
-            await self.collection.insert_one(log_doc)
+            self.collection.insert_one(log_doc)
             logger.debug(f"Logged command: {telegram_id} -> {command}")
             return True
 
@@ -452,9 +448,9 @@ class UsageLogsRepository:
                 {"$sort": {"count": -1}},
             ]
 
-            # Motor's aggregate returns a cursor that needs to be converted to list
-            cursor = self.collection.aggregate(cast(list[dict[str, Any]], pipeline))
-            results = await cursor.to_list(length=None)
+            results = list(
+                self.collection.aggregate(cast(list[dict[str, Any]], pipeline))
+            )
 
             stats = {
                 "period_days": days,
@@ -483,7 +479,7 @@ class UsageLogsRepository:
         """
         try:
             telegram_id = validate_telegram_id(telegram_id)
-            result = await self.collection.delete_many({"telegram_id": telegram_id})
+            result = self.collection.delete_many({"telegram_id": telegram_id})
             logger.info(f"Deleted {result.deleted_count} logs for user {telegram_id}")
             return result.deleted_count
         except Exception as e:
