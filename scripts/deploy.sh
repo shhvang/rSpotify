@@ -5,13 +5,13 @@ echo "🚀 Starting rSpotify Bot deployment..."
 
 # Update system
 apt-get update -y
-apt-get install -y python3.11 python3.11-venv python3-pip git supervisor nginx
+apt-get install -y python3.11 python3.11-venv python3-pip git supervisor
 
 # Create app user
 useradd -m -s /bin/bash rspotify || true
 
 # Create directories
-mkdir -p /opt/rspotify-bot/{logs,backups}
+mkdir -p /opt/rspotify-bot/{logs,backups,letsencrypt}
 
 # Fix git ownership issue
 git config --global --add safe.directory /opt/rspotify-bot/repo
@@ -49,9 +49,10 @@ DEBUG=false
 LOG_LEVEL=INFO
 PASTEBIN_API_KEY=${PASTEBIN_API_KEY}
 PASTEBIN_USER_KEY=${PASTEBIN_USER_KEY}
-DUCKDNS_TOKEN=${DUCKDNS_TOKEN:-placeholder}
-DUCKDNS_DOMAIN=${DUCKDNS_DOMAIN:-localhost}
-SPOTIFY_REDIRECT_URI=https://${DUCKDNS_DOMAIN:-localhost}/callback
+DOMAIN=rspotify.shhvang.space
+BOT_USERNAME=${BOT_USERNAME}
+CERTBOT_EMAIL=${CERTBOT_EMAIL}
+SPOTIFY_REDIRECT_URI=https://rspotify.shhvang.space/spotify/callback
 EOF
 
 chown rspotify:rspotify /opt/rspotify-bot/repo/.env
@@ -70,39 +71,19 @@ stdout_logfile=/opt/rspotify-bot/logs/bot_output.log
 environment=HOME="/opt/rspotify-bot",PATH="/opt/rspotify-bot/venv/bin"
 EOF
 
-# Setup supervisor for Flask OAuth callback service (Story 1.4)
-cat > /etc/supervisor/conf.d/rspotify-flask.conf << 'EOF'
-[program:rspotify-flask]
+# Setup supervisor for aiohttp OAuth callback service (Story 1.4)
+# This service handles SSL automatically via certbot - no Nginx needed
+cat > /etc/supervisor/conf.d/rspotify-oauth.conf << 'EOF'
+[program:rspotify-oauth]
 command=/opt/rspotify-bot/venv/bin/python /opt/rspotify-bot/repo/web_callback/app.py
 directory=/opt/rspotify-bot/repo
 user=rspotify
 autostart=true
 autorestart=true
-stderr_logfile=/opt/rspotify-bot/logs/flask_error.log
-stdout_logfile=/opt/rspotify-bot/logs/flask_output.log
+stderr_logfile=/opt/rspotify-bot/logs/oauth_error.log
+stdout_logfile=/opt/rspotify-bot/logs/oauth_output.log
 environment=HOME="/opt/rspotify-bot",PATH="/opt/rspotify-bot/venv/bin"
 EOF
-
-# Setup nginx for OAuth callback routing (Story 1.4)
-cat > /etc/nginx/sites-available/rspotify << 'EOF'
-server {
-    listen 80;
-    server_name rspotify.shhvang.space;
-    
-    # OAuth callback endpoint
-    location /spotify/callback {
-        proxy_pass http://localhost:5000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-EOF
-
-# Enable nginx site
-ln -sf /etc/nginx/sites-available/rspotify /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
 
 # Setup web app bots if tokens are provided
 if [ ! -z "${BETTERTHANVERY_BOT_TOKEN}" ]; then
@@ -155,7 +136,7 @@ fi
 supervisorctl reread
 supervisorctl update
 supervisorctl restart rspotify-bot
-supervisorctl restart rspotify-flask
+supervisorctl restart rspotify-oauth
 
 # Restart web app bots if configured
 if [ ! -z "${BETTERTHANVERY_BOT_TOKEN}" ]; then
@@ -169,7 +150,7 @@ echo "✅ Deployment complete!"
 echo ""
 echo "📊 Bot Status:"
 supervisorctl status rspotify-bot
-supervisorctl status rspotify-flask
+supervisorctl status rspotify-oauth
 if [ ! -z "${BETTERTHANVERY_BOT_TOKEN}" ]; then
     supervisorctl status betterthanvery-bot
 fi

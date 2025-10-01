@@ -69,8 +69,8 @@ jobs:
           export SPOTIFY_CLIENT_SECRET="${{ secrets.SPOTIFY_CLIENT_SECRET }}"
           export PASTEBIN_API_KEY="${{ secrets.PASTEBIN_API_KEY }}"
           export PASTEBIN_USER_KEY="${{ secrets.PASTEBIN_USER_KEY }}"
-          export DUCKDNS_TOKEN="${{ secrets.DUCKDNS_TOKEN }}"
-          export DUCKDNS_DOMAIN="${{ secrets.DUCKDNS_DOMAIN }}"
+          export BOT_USERNAME="${{ secrets.BOT_USERNAME }}"
+          export CERTBOT_EMAIL="${{ secrets.CERTBOT_EMAIL }}"
           export BETTERTHANVERY_BOT_TOKEN="${{ secrets.BETTERTHANVERY_BOT_TOKEN }}"
           export PERFECTCIRCLE_BOT_TOKEN="${{ secrets.PERFECTCIRCLE_BOT_TOKEN }}"
           bash /tmp/deploy.sh
