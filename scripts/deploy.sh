@@ -32,11 +32,21 @@ cd /opt/rspotify-bot/repo
 rm -rf /opt/rspotify-bot/venv
 python3.11 -m venv /opt/rspotify-bot/venv
 source /opt/rspotify-bot/venv/bin/activate
+
+# Upgrade pip first
 pip install --upgrade pip
 
-# Install dependencies with no cache to ensure fresh versions
+# Install all requirements explicitly with no cache
+echo "Installing dependencies from requirements.txt..."
 pip install --no-cache-dir -r requirements.txt
-pip install -e .
+
+# Install the package in editable mode (this should use already-installed deps)
+echo "Installing rspotify-bot package..."
+pip install --no-deps -e .
+
+# Verify critical packages are installed
+echo "Verifying installations..."
+pip list | grep -E "(certbot|josepy|aiohttp|python-dotenv|pymongo)"
 
 # Grant Python capability to bind to privileged ports (80, 443) without root
 # The venv python is a symlink, so we need to apply setcap to the real binary
