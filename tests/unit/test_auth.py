@@ -1,13 +1,19 @@
 """
-Unit tests for owner authorization service.
+Unit tests for owner authorization and Spotify OAuth service.
 """
 
 import pytest
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, patch, MagicMock
+from datetime import datetime, timedelta
 from telegram import Update, User, Message, Chat
 from telegram.ext import ContextTypes
 
-from rspotify_bot.services.auth import owner_only, is_owner, get_owner_id
+from rspotify_bot.services.auth import (
+    owner_only,
+    is_owner,
+    get_owner_id,
+    SpotifyAuthService,
+)
 
 
 class TestOwnerAuthorization:

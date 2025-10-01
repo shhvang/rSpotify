@@ -70,6 +70,40 @@ stdout_logfile=/opt/rspotify-bot/logs/bot_output.log
 environment=HOME="/opt/rspotify-bot",PATH="/opt/rspotify-bot/venv/bin"
 EOF
 
+# Setup supervisor for Flask OAuth callback service (Story 1.4)
+cat > /etc/supervisor/conf.d/rspotify-flask.conf << 'EOF'
+[program:rspotify-flask]
+command=/opt/rspotify-bot/venv/bin/python /opt/rspotify-bot/repo/web_callback/app.py
+directory=/opt/rspotify-bot/repo
+user=rspotify
+autostart=true
+autorestart=true
+stderr_logfile=/opt/rspotify-bot/logs/flask_error.log
+stdout_logfile=/opt/rspotify-bot/logs/flask_output.log
+environment=HOME="/opt/rspotify-bot",PATH="/opt/rspotify-bot/venv/bin"
+EOF
+
+# Setup nginx for OAuth callback routing (Story 1.4)
+cat > /etc/nginx/sites-available/rspotify << 'EOF'
+server {
+    listen 80;
+    server_name rspotify.shhvang.space;
+    
+    # OAuth callback endpoint
+    location /spotify/callback {
+        proxy_pass http://localhost:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOF
+
+# Enable nginx site
+ln -sf /etc/nginx/sites-available/rspotify /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+
 # Setup web app bots if tokens are provided
 if [ ! -z "${BETTERTHANVERY_BOT_TOKEN}" ]; then
     echo "📱 Setting up Better Than Very bot..."
@@ -121,6 +155,7 @@ fi
 supervisorctl reread
 supervisorctl update
 supervisorctl restart rspotify-bot
+supervisorctl restart rspotify-flask
 
 # Restart web app bots if configured
 if [ ! -z "${BETTERTHANVERY_BOT_TOKEN}" ]; then
@@ -134,6 +169,7 @@ echo "✅ Deployment complete!"
 echo ""
 echo "📊 Bot Status:"
 supervisorctl status rspotify-bot
+supervisorctl status rspotify-flask
 if [ ! -z "${BETTERTHANVERY_BOT_TOKEN}" ]; then
     supervisorctl status betterthanvery-bot
 fi

@@ -22,11 +22,16 @@ class Config:
     # Telegram Configuration
     TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
     OWNER_TELEGRAM_ID: str = os.getenv("OWNER_TELEGRAM_ID", "")
+    BOT_USERNAME: str = os.getenv("BOT_USERNAME", "")
 
     # Spotify Configuration
     SPOTIFY_CLIENT_ID: str = os.getenv("SPOTIFY_CLIENT_ID", "")
     SPOTIFY_CLIENT_SECRET: str = os.getenv("SPOTIFY_CLIENT_SECRET", "")
     SPOTIFY_REDIRECT_URI: str = os.getenv("SPOTIFY_REDIRECT_URI", "")
+
+    # OAuth Callback Service Configuration (aiohttp + certbot)
+    DOMAIN: str = os.getenv("DOMAIN", "")
+    CERTBOT_EMAIL: str = os.getenv("CERTBOT_EMAIL", "")
 
     # Database Configuration
     MONGODB_URI: str = os.getenv("MONGODB_URI", "")
