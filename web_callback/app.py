@@ -394,7 +394,17 @@ async def setup_ssl_certificates():
         
         if exit_code == 0:
             logger.info(f'✅ SSL certificate obtained successfully for {domain}')
-            return str(cert_path), str(key_path)
+            
+            # Verify the certificates actually exist
+            if cert_path.exists() and key_path.exists():
+                logger.info(f'✅ Certificate files confirmed at {cert_path}')
+                return str(cert_path), str(key_path)
+            else:
+                logger.error(f'Certbot succeeded but certificate files not found at {cert_path}')
+                logger.error(f'Checking actual directory contents...')
+                if cert_dir.exists():
+                    logger.error(f'Contents of {cert_dir}: {list(cert_dir.rglob("*"))}')
+                return None, None
         else:
             logger.error(f'Certbot exited with code {exit_code}')
             return None, None
