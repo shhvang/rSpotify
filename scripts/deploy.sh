@@ -36,7 +36,24 @@ pip install -r requirements.txt
 pip install -e .
 
 # Grant Python capability to bind to privileged ports (80, 443) without root
-setcap 'cap_net_bind_service=+ep' /opt/rspotify-bot/venv/bin/python3.11
+# The venv python is a symlink, so we need to apply setcap to the real binary
+PYTHON_VENV=/opt/rspotify-bot/venv/bin/python3.11
+if [ -L "$PYTHON_VENV" ]; then
+    PYTHON_BIN=$(readlink -f "$PYTHON_VENV")
+else
+    PYTHON_BIN="$PYTHON_VENV"
+fi
+
+echo "Setting CAP_NET_BIND_SERVICE capability on $PYTHON_BIN"
+setcap 'cap_net_bind_service=+ep' "$PYTHON_BIN"
+
+# Verify
+if getcap "$PYTHON_BIN" | grep -q cap_net_bind_service; then
+    echo "✅ Successfully granted CAP_NET_BIND_SERVICE to Python"
+else
+    echo "❌ Failed to set capabilities"
+    exit 1
+fi
 
 # Create .env file in repo directory (where the bot loads from)
 cat > /opt/rspotify-bot/repo/.env << EOF

@@ -125,7 +125,9 @@ This allows the `rspotify` user (non-root) to safely bind to ports 80 and 443.
 
 ### Changes Made
 - ✅ Added `libcap2-bin` to apt package list
-- ✅ Added `setcap` command after pip install
+- ✅ Added `setcap` command after pip install (with symlink resolution)
 - ✅ Service continues to run as `rspotify` user (secure)
 
-**Status:** ✅ Fixed in commit [pending]
+**Important:** The `setcap` command now uses `readlink -f` to resolve symlinks, since venv Python binaries are typically symlinks and `setcap` requires a regular file.
+
+**Status:** ✅ Fixed in commit a6ac925 (symlink fix pending)
