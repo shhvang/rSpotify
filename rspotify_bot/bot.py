@@ -345,11 +345,11 @@ class RSpotifyBot:
             
             # Store tokens in database
             user_repo = UserRepository(self.db_service.database)
-            success = await user_repo.store_spotify_tokens(
+            success = await user_repo.update_spotify_tokens(
                 telegram_id,
                 tokens["access_token"],
                 tokens["refresh_token"],
-                tokens["expires_in"]
+                tokens["expires_at"]
             )
             
             # Delete used code from database
