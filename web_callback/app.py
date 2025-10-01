@@ -339,12 +339,17 @@ async def setup_ssl_certificates():
         logger.error('CERTBOT_EMAIL not configured - SSL certificates cannot be provisioned')
         return None, None
 
-    # Certificate paths
-    cert_dir = Path('web_callback/certs')
+    # Certificate paths - use absolute path from script location
+    script_dir = Path(__file__).parent.absolute()
+    cert_dir = script_dir / 'certs'
     cert_dir.mkdir(parents=True, exist_ok=True)
     
     cert_path = cert_dir / 'live' / domain / 'fullchain.pem'
     key_path = cert_dir / 'live' / domain / 'privkey.pem'
+    
+    logger.info(f'Certificate directory: {cert_dir}')
+    logger.info(f'Looking for certificate at: {cert_path}')
+    logger.info(f'Looking for key at: {key_path}')
 
     # Check if certificates already exist
     if cert_path.exists() and key_path.exists():
