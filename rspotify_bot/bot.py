@@ -18,7 +18,7 @@ from telegram.ext import (
 from .config import Config
 from .services.database import DatabaseService
 from .services.notifications import NotificationService
-from .services.middleware import create_protection_wrapper
+from .services.middleware import create_protection_wrapper, get_temporary_storage
 from .handlers.owner_commands import register_owner_commands
 from .handlers.user_commands import register_user_command_handlers
 
@@ -51,6 +51,11 @@ class RSpotifyBot:
         if not await self.db_service.connect():
             logger.error("Failed to connect to database. Exiting.")
             return
+
+        # Initialize temporary storage for OAuth state parameters
+        temp_storage = get_temporary_storage()
+        await temp_storage.start_cleanup_task()
+        logger.info("Temporary storage cleanup task started")
 
         # Build application
         self.application = ApplicationBuilder().token(self.token).build()
@@ -96,6 +101,11 @@ class RSpotifyBot:
             if self.application.updater:
                 await self.application.updater.stop()
             await self.application.stop()
+
+            # Stop temporary storage cleanup task
+            await temp_storage.stop_cleanup_task()
+            logger.info("Temporary storage cleanup task stopped")
+
             logger.info("Bot stopped gracefully")
 
     def _register_handlers(self) -> None:
