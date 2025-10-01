@@ -103,7 +103,7 @@ autostart=true
 autorestart=true
 stderr_logfile=/opt/rspotify-bot/logs/oauth_error.log
 stdout_logfile=/opt/rspotify-bot/logs/oauth_output.log
-environment=HOME="/opt/rspotify-bot",PATH="/opt/rspotify-bot/venv/bin"
+environment=HOME="/opt/rspotify-bot",PATH="/opt/rspotify-bot/venv/bin",PYTHONPATH="/opt/rspotify-bot/repo"
 EOF
 
 # Setup web app bots if tokens are provided
