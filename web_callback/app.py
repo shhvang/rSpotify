@@ -295,7 +295,12 @@ async def spotify_callback(request: web.Request) -> web.Response:
             'expires_at': datetime.now(timezone.utc) + timedelta(minutes=10)
         }
 
-        result = await db_service.database.oauth_codes.insert_one(code_doc)
+        # Run PyMongo's insert_one in thread pool (it's synchronous)
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(
+            None,
+            lambda: db_service.database.oauth_codes.insert_one(code_doc)
+        )
         code_id = str(result.inserted_id)
 
         logger.info(f'Stored auth code with ID: {code_id} for telegram_id: {telegram_id}')
