@@ -7,7 +7,7 @@ import logging
 import secrets
 import asyncio
 from typing import Callable, Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -282,7 +282,7 @@ class TemporaryStorage:
     async def _cleanup_expired(self):
         """Remove expired entries from storage."""
         async with self._lock:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             expired_keys = [
                 key
                 for key, data in self._storage.items()
@@ -303,7 +303,7 @@ class TemporaryStorage:
             expiry_seconds: Time to live in seconds (default: 300 = 5 minutes)
         """
         async with self._lock:
-            expires_at = datetime.utcnow() + timedelta(seconds=expiry_seconds)
+            expires_at = datetime.now(timezone.utc) + timedelta(seconds=expiry_seconds)
             self._storage[key] = {"value": value, "expires_at": expires_at}
             logger.debug(f"Stored key '{key}' with {expiry_seconds}s TTL")
 
@@ -323,7 +323,7 @@ class TemporaryStorage:
                 return None
 
             # Check expiry
-            if data["expires_at"] < datetime.utcnow():
+            if data["expires_at"] < datetime.now(timezone.utc):
                 del self._storage[key]
                 logger.debug(f"Key '{key}' expired and removed")
                 return None
@@ -455,7 +455,7 @@ def require_spotify_auth(func: Callable) -> Callable:
             expires_at = spotify_data.get("expires_at")
             if expires_at:
                 # Check if token is expired or will expire in next 5 minutes
-                if expires_at < datetime.utcnow() + timedelta(minutes=5):
+                if expires_at < datetime.now(timezone.utc) + timedelta(minutes=5):
                     logger.info(
                         f"Token expired or expiring soon for user {telegram_id}, attempting refresh"
                     )

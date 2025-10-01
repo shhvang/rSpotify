@@ -7,7 +7,7 @@ import logging
 import httpx
 from functools import wraps
 from typing import Callable, Any, Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -195,7 +195,7 @@ class SpotifyAuthService:
 
                 # Calculate expiration timestamp
                 expires_in = data.get("expires_in", 3600)  # Default 1 hour
-                expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+                expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
 
                 logger.info("Successfully exchanged authorization code for tokens")
 
@@ -208,9 +208,6 @@ class SpotifyAuthService:
         except httpx.HTTPError as e:
             logger.error(f"HTTP error during token exchange: {e}")
             raise Exception(f"Network error during token exchange: {e}")
-        except Exception as e:
-            logger.error(f"Error exchanging authorization code: {e}")
-            raise
 
     async def refresh_access_token(self, refresh_token: str) -> Dict[str, Any]:
         """
@@ -257,7 +254,7 @@ class SpotifyAuthService:
 
                 # Calculate expiration timestamp
                 expires_in = data.get("expires_in", 3600)
-                expires_at = datetime.utcnow() + timedelta(seconds=expires_in)
+                expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
 
                 # Spotify may or may not return a new refresh token
                 new_refresh_token = data.get("refresh_token", refresh_token)
@@ -273,9 +270,6 @@ class SpotifyAuthService:
         except httpx.HTTPError as e:
             logger.error(f"HTTP error during token refresh: {e}")
             raise Exception(f"Network error during token refresh: {e}")
-        except Exception as e:
-            logger.error(f"Error refreshing access token: {e}")
-            raise
 
     async def revoke_token(self, token: str) -> bool:
         """

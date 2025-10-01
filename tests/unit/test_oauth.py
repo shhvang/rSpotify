@@ -137,7 +137,7 @@ class TestSpotifyAuthService:
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
         mock_client.__aenter__.return_value = mock_client
-        mock_client.__aexit__.return_value = AsyncMock()
+        mock_client.__aexit__.return_value = False  # Don't suppress exceptions
         mock_client_class.return_value = mock_client
 
         service = SpotifyAuthService()
@@ -206,7 +206,7 @@ class TestSpotifyAuthService:
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
         mock_client.__aenter__.return_value = mock_client
-        mock_client.__aexit__.return_value = AsyncMock()
+        mock_client.__aexit__.return_value = False  # Don't suppress exceptions
         mock_client_class.return_value = mock_client
 
         service = SpotifyAuthService()
