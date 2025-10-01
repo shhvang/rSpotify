@@ -1,13 +1,12 @@
 """
 Database service for rSpotify Bot.
-Handles MongoDB Atlas connection and operations.
+Handles MongoDB Atlas connection and operations using Motor (async driver).
 """
 
 import logging
 from typing import Optional, Dict, Any, cast
 from datetime import datetime, timedelta
-from pymongo import MongoClient
-from pymongo.database import Database
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 from pymongo import IndexModel, ASCENDING, DESCENDING
 
@@ -17,12 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 class DatabaseService:
-    """Service class for database operations with MongoDB Atlas."""
+    """Service class for database operations with MongoDB Atlas using Motor (async)."""
 
     def __init__(self) -> None:
         """Initialize database service."""
-        self.client: Optional[MongoClient] = None
-        self.database: Optional[Database[Any]] = None
+        self.client: Optional[AsyncIOMotorClient] = None  # type: ignore
+        self.database: Optional[AsyncIOMotorDatabase] = None  # type: ignore
         self._connection_validated = False
 
     async def connect(self) -> bool:
@@ -42,8 +41,8 @@ class DatabaseService:
                 self._connection_validated = True
                 return True
 
-            # Create client with connection pooling
-            self.client = MongoClient(
+            # Create Motor async client with connection pooling
+            self.client = AsyncIOMotorClient(
                 config.MONGODB_URI,
                 maxPoolSize=10,
                 minPoolSize=1,
@@ -55,14 +54,14 @@ class DatabaseService:
             # Get database
             self.database = self.client[config.MONGODB_DATABASE]
 
-            # Validate connection
-            self.client.admin.command("ping")
+            # Validate connection (Motor uses async)
+            await self.client.admin.command("ping")
             self._connection_validated = True
 
             logger.info(f"Connected to MongoDB database: {config.MONGODB_DATABASE}")
 
-            # Setup indexes (synchronous version)
-            self._setup_indexes_sync()
+            # Setup indexes (now async with Motor)
+            await self._setup_indexes()
 
             return True
 
@@ -93,26 +92,26 @@ class DatabaseService:
             return False
 
         try:
-            # For sync client, wrap in executor
-            self.client.admin.command("ping")
+            # For Motor async client, use await
+            await self.client.admin.command("ping")
             return True
         except Exception as e:
             logger.warning(f"Database health check failed: {e}")
             return False
 
-    def _setup_indexes_sync(self) -> None:
-        """Setup database indexes for optimal performance (synchronous version)."""
+    async def _setup_indexes(self) -> None:
+        """Setup database indexes for optimal performance (async with Motor)."""
         if self.database is None:
             return
 
         try:
-            # Users collection indexes
+            # Users collection indexes (Motor uses await for create_indexes)
             users_indexes = [
                 IndexModel([("telegram_id", ASCENDING)], unique=True),
                 IndexModel([("created_at", DESCENDING)]),
                 IndexModel([("last_active", DESCENDING)]),
             ]
-            self.database.users.create_indexes(users_indexes)
+            await self.database.users.create_indexes(users_indexes)
 
             # Search cache collection indexes
             cache_indexes = [
@@ -121,7 +120,7 @@ class DatabaseService:
                     [("created_at", ASCENDING)], expireAfterSeconds=2592000
                 ),  # 30 days TTL
             ]
-            self.database.search_cache.create_indexes(cache_indexes)
+            await self.database.search_cache.create_indexes(cache_indexes)
 
             # Usage logs collection indexes
             logs_indexes = [
@@ -132,14 +131,14 @@ class DatabaseService:
                     [("timestamp", ASCENDING)], expireAfterSeconds=7776000
                 ),  # 90 days TTL
             ]
-            self.database.usage_logs.create_indexes(logs_indexes)
+            await self.database.usage_logs.create_indexes(logs_indexes)
 
             # Blacklist collection indexes
             blacklist_indexes = [
                 IndexModel([("telegram_id", ASCENDING)], unique=True),
                 IndexModel([("blocked_at", DESCENDING)]),
             ]
-            self.database.blacklist.create_indexes(blacklist_indexes)
+            await self.database.blacklist.create_indexes(blacklist_indexes)
 
             # Rate limiting collection indexes
             ratelimit_indexes = [
@@ -148,7 +147,7 @@ class DatabaseService:
                     [("window_start", ASCENDING)], expireAfterSeconds=3600
                 ),  # 1 hour TTL
             ]
-            self.database.rate_limits.create_indexes(ratelimit_indexes)
+            await self.database.rate_limits.create_indexes(ratelimit_indexes)
 
             # OAuth codes collection indexes (Story 1.4)
             oauth_codes_indexes = [
@@ -158,7 +157,7 @@ class DatabaseService:
                     [("expires_at", ASCENDING)], expireAfterSeconds=0
                 ),  # TTL index - documents auto-delete when expires_at < now
             ]
-            self.database.oauth_codes.create_indexes(oauth_codes_indexes)
+            await self.database.oauth_codes.create_indexes(oauth_codes_indexes)
 
             logger.info("Database indexes created successfully")
 
@@ -181,7 +180,7 @@ class DatabaseService:
             return None
 
         try:
-            return self.database.users.find_one({"telegram_id": telegram_id})
+            return await self.database.users.find_one({"telegram_id": telegram_id})
         except Exception as e:
             logger.error(f"Error getting user {telegram_id}: {e}")
             return None
@@ -215,7 +214,7 @@ class DatabaseService:
                 },
             }
 
-            self.database.users.insert_one(user_doc)
+            await self.database.users.insert_one(user_doc)
             logger.info(f"Created user record for {telegram_id}")
             return True
 
@@ -237,7 +236,7 @@ class DatabaseService:
             return False
 
         try:
-            result = self.database.users.update_one(
+            result = await self.database.users.update_one(
                 {"telegram_id": telegram_id},
                 {"$set": {"last_active": datetime.utcnow()}},
             )
@@ -263,7 +262,7 @@ class DatabaseService:
             return None
 
         try:
-            result = self.database.search_cache.find_one({"query_string": query})
+            result = await self.database.search_cache.find_one({"query_string": query})
             if result:
                 logger.debug(f"Cache hit for query: {query}")
                 return cast(Optional[str], result.get("spotify_track_id"))
@@ -295,7 +294,7 @@ class DatabaseService:
             }
 
             # Upsert to handle duplicate queries
-            self.database.search_cache.replace_one(
+            await self.database.search_cache.replace_one(
                 {"query_string": query}, cache_doc, upsert=True
             )
 
@@ -338,7 +337,7 @@ class DatabaseService:
             if extra_data:
                 log_doc.update(extra_data)
 
-            self.database.usage_logs.insert_one(log_doc)
+            await self.database.usage_logs.insert_one(log_doc)
             logger.debug(f"Logged usage: {telegram_id} -> {command}")
             return True
 
@@ -374,9 +373,9 @@ class DatabaseService:
                 {"$sort": {"count": -1}},
             ]
 
-            results = list(
-                self.database.usage_logs.aggregate(cast(list[dict[str, Any]], pipeline))
-            )
+            # Motor's aggregate returns a cursor
+            cursor = self.database.usage_logs.aggregate(cast(list[dict[str, Any]], pipeline))
+            results = await cursor.to_list(length=None)
 
             stats = {
                 "period_days": days,
@@ -411,19 +410,19 @@ class DatabaseService:
 
             # Count expired cache entries (older than 30 days)
             cache_cutoff = datetime.utcnow() - timedelta(days=30)
-            expired_cache = self.database.search_cache.count_documents(
+            expired_cache = await self.database.search_cache.count_documents(
                 {"created_at": {"$lt": cache_cutoff}}
             )
 
             # Count expired logs (older than 90 days)
             logs_cutoff = datetime.utcnow() - timedelta(days=90)
-            expired_logs = self.database.usage_logs.count_documents(
+            expired_logs = await self.database.usage_logs.count_documents(
                 {"timestamp": {"$lt": logs_cutoff}}
             )
 
             # Manual deletion if needed (TTL indexes should handle this)
             if expired_cache > 0:
-                cache_result = self.database.search_cache.delete_many(
+                cache_result = await self.database.search_cache.delete_many(
                     {"created_at": {"$lt": cache_cutoff}}
                 )
                 logger.info(
@@ -431,7 +430,7 @@ class DatabaseService:
                 )
 
             if expired_logs > 0:
-                logs_result = self.database.usage_logs.delete_many(
+                logs_result = await self.database.usage_logs.delete_many(
                     {"timestamp": {"$lt": logs_cutoff}}
                 )
                 logger.info(
@@ -474,7 +473,7 @@ class DatabaseService:
                 "blocked_by": blocked_by,
             }
 
-            self.database.blacklist.replace_one(
+            await self.database.blacklist.replace_one(
                 {"telegram_id": telegram_id}, blacklist_doc, upsert=True
             )
 
@@ -499,7 +498,7 @@ class DatabaseService:
             return False
 
         try:
-            result = self.database.blacklist.delete_one({"telegram_id": telegram_id})
+            result = await self.database.blacklist.delete_one({"telegram_id": telegram_id})
             success = result.deleted_count > 0
 
             if success:
@@ -527,7 +526,7 @@ class DatabaseService:
             return False
 
         try:
-            result = self.database.blacklist.find_one({"telegram_id": telegram_id})
+            result = await self.database.blacklist.find_one({"telegram_id": telegram_id})
             is_blocked = result is not None
 
             if is_blocked:
@@ -553,7 +552,7 @@ class DatabaseService:
             return None
 
         try:
-            return self.database.blacklist.find_one({"telegram_id": telegram_id})
+            return await self.database.blacklist.find_one({"telegram_id": telegram_id})
         except Exception as e:
             logger.error(f"Error getting blacklist info for user {telegram_id}: {e}")
             return None
@@ -577,7 +576,7 @@ class DatabaseService:
             since_date = datetime.utcnow() - timedelta(days=days)
 
             # Total users
-            total_users = self.database.users.count_documents({})
+            total_users = await self.database.users.count_documents({})
 
             # Active users (used bot in specified period)
             active_users = self.database.usage_logs.distinct(
@@ -586,7 +585,7 @@ class DatabaseService:
             active_user_count = len(active_users)
 
             # New users in period
-            new_users = self.database.users.count_documents(
+            new_users = await self.database.users.count_documents(
                 {"created_at": {"$gte": since_date}}
             )
 
@@ -605,11 +604,9 @@ class DatabaseService:
                 {"$sort": {"count": -1}},
             ]
 
-            command_stats = list(
-                self.database.usage_logs.aggregate(
-                    cast(list[dict[str, Any]], command_pipeline)
-                )
-            )
+            command_stats = await self.database.usage_logs.aggregate(
+                cast(list[dict[str, Any]], command_pipeline)
+            ).to_list(length=None)
 
             # Total commands executed
             total_commands = sum(stat["count"] for stat in command_stats)
@@ -633,14 +630,12 @@ class DatabaseService:
                 {"$sort": {"_id": 1}},
             ]
 
-            daily_stats = list(
-                self.database.usage_logs.aggregate(
-                    cast(list[dict[str, Any]], daily_pipeline)
-                )
-            )
+            daily_stats = await self.database.usage_logs.aggregate(
+                cast(list[dict[str, Any]], daily_pipeline)
+            ).to_list(length=None)
 
             # Blacklisted users count
-            blacklisted_count = self.database.blacklist.count_documents({})
+            blacklisted_count = await self.database.blacklist.count_documents({})
 
             return {
                 "period_days": days,
@@ -688,7 +683,7 @@ class DatabaseService:
             window_start = now - timedelta(minutes=window_minutes)
 
             # Count recent calls
-            recent_calls = self.database.usage_logs.count_documents(
+            recent_calls = await self.database.usage_logs.count_documents(
                 {
                     "telegram_id": user_id,
                     "command": command,
@@ -724,7 +719,7 @@ class DatabaseService:
                 "type": "rate_limit_exceeded",
             }
 
-            self.database.rate_limit_violations.insert_one(violation_doc)
+            await self.database.rate_limit_violations.insert_one(violation_doc)
             logger.warning(
                 f"Rate limit violation recorded for user {user_id} on command {command}"
             )

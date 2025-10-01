@@ -124,9 +124,9 @@ async def init_services():
         temp_storage._use_mongodb = True
         logger.info('Temporary storage initialized with MongoDB backend')
         
-        # Create TTL index on temp_storage collection (synchronous)
+        # Create TTL index on temp_storage collection (Motor is async)
         try:
-            db_service.database.temp_storage.create_index(
+            await db_service.database.temp_storage.create_index(
                 "expires_at",
                 expireAfterSeconds=0
             )
@@ -295,12 +295,8 @@ async def spotify_callback(request: web.Request) -> web.Response:
             'expires_at': datetime.now(timezone.utc) + timedelta(minutes=10)
         }
 
-        # Run PyMongo's insert_one in thread pool (it's synchronous)
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None,
-            lambda: db_service.database.oauth_codes.insert_one(code_doc)
-        )
+        # Motor is async, no need for thread pool
+        result = await db_service.database.oauth_codes.insert_one(code_doc)
         code_id = str(result.inserted_id)
 
         logger.info(f'Stored auth code with ID: {code_id} for telegram_id: {telegram_id}')

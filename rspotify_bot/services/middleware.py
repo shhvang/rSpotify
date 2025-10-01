@@ -321,22 +321,18 @@ class TemporaryStorage:
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=expiry_seconds)
         
         if self._use_mongodb:
-            # Store in MongoDB for cross-process sharing (run in thread pool since PyMongo is sync)
+            # Store in MongoDB for cross-process sharing (Motor is async)
             try:
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(
-                    None,
-                    lambda: self._database.temp_storage.update_one(
-                        {"_id": key},
-                        {
-                            "$set": {
-                                "value": value,
-                                "expires_at": expires_at,
-                                "created_at": datetime.now(timezone.utc)
-                            }
-                        },
-                        upsert=True
-                    )
+                await self._database.temp_storage.update_one(
+                    {"_id": key},
+                    {
+                        "$set": {
+                            "value": value,
+                            "expires_at": expires_at,
+                            "created_at": datetime.now(timezone.utc)
+                        }
+                    },
+                    upsert=True
                 )
                 logger.debug(f"Stored key '{key}' in MongoDB with {expiry_seconds}s TTL")
             except Exception as e:
@@ -361,13 +357,9 @@ class TemporaryStorage:
             Stored value if found and not expired, None otherwise
         """
         if self._use_mongodb:
-            # Retrieve from MongoDB (run in thread pool since PyMongo is sync)
+            # Retrieve from MongoDB (Motor is async)
             try:
-                loop = asyncio.get_event_loop()
-                doc = await loop.run_in_executor(
-                    None,
-                    lambda: self._database.temp_storage.find_one({"_id": key})
-                )
+                doc = await self._database.temp_storage.find_one({"_id": key})
                 if not doc:
                     return None
                 
@@ -378,10 +370,7 @@ class TemporaryStorage:
                 
                 # Check expiry
                 if expires_at < datetime.now(timezone.utc):
-                    await loop.run_in_executor(
-                        None,
-                        lambda: self._database.temp_storage.delete_one({"_id": key})
-                    )
+                    await self._database.temp_storage.delete_one({"_id": key})
                     logger.debug(f"Key '{key}' expired and removed from MongoDB")
                     return None
                 
@@ -416,13 +405,9 @@ class TemporaryStorage:
             True if key was deleted, False if not found
         """
         if self._use_mongodb:
-            # Delete from MongoDB (run in thread pool since PyMongo is sync)
+            # Delete from MongoDB (Motor is async)
             try:
-                loop = asyncio.get_event_loop()
-                result = await loop.run_in_executor(
-                    None,
-                    lambda: self._database.temp_storage.delete_one({"_id": key})
-                )
+                result = await self._database.temp_storage.delete_one({"_id": key})
                 if result.deleted_count > 0:
                     logger.debug(f"Deleted key '{key}' from MongoDB")
                     return True

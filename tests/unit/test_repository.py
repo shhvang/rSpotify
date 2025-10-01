@@ -5,7 +5,7 @@ Tests data access operations with mocked database.
 
 import pytest
 from datetime import datetime, timedelta
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock, patch, AsyncMock
 from cryptography.fernet import Fernet
 
 from rspotify_bot.services.repository import (
@@ -23,7 +23,7 @@ class TestUserRepository:
 
     @pytest.fixture
     def mock_database(self):
-        """Create mock database."""
+        """Create mock database with AsyncMock for Motor."""
         db = Mock()
         db.users = Mock()
         db.search_cache = Mock()
@@ -55,7 +55,7 @@ class TestUserRepository:
         telegram_id = 123456789
         custom_name = "Test User"
 
-        mock_database.users.insert_one = Mock()
+        mock_database.users.insert_one = AsyncMock()
 
         result = await user_repository.create_user(telegram_id, custom_name)
 
@@ -72,7 +72,7 @@ class TestUserRepository:
             "expires_at": datetime.utcnow(),
         }
 
-        mock_database.users.insert_one = Mock()
+        mock_database.users.insert_one = AsyncMock()
 
         result = await user_repository.create_user(telegram_id, spotify_tokens=tokens)
 
@@ -95,7 +95,7 @@ class TestUserRepository:
         """Test user creation fails with duplicate telegram_id."""
         from pymongo.errors import DuplicateKeyError
 
-        mock_database.users.insert_one = Mock(
+        mock_database.users.insert_one = AsyncMock(
             side_effect=DuplicateKeyError("duplicate")
         )
 
@@ -123,7 +123,7 @@ class TestUserRepository:
             "created_at": datetime.utcnow(),
         }
 
-        mock_database.users.find_one = Mock(return_value=mock_user)
+        mock_database.users.find_one = AsyncMock(return_value=mock_user)
 
         result = await user_repository.get_user(telegram_id)
 
@@ -136,7 +136,7 @@ class TestUserRepository:
     @pytest.mark.asyncio
     async def test_get_user_not_found(self, user_repository, mock_database):
         """Test user retrieval returns None when not found."""
-        mock_database.users.find_one = Mock(return_value=None)
+        mock_database.users.find_one = AsyncMock(return_value=None)
 
         result = await user_repository.get_user(123456789)
 
@@ -153,7 +153,7 @@ class TestUserRepository:
             },
         }
 
-        mock_database.users.find_one = Mock(return_value=mock_user)
+        mock_database.users.find_one = AsyncMock(return_value=mock_user)
 
         result = await user_repository.get_user(123456789)
 
@@ -169,7 +169,7 @@ class TestUserRepository:
 
         mock_result = Mock()
         mock_result.modified_count = 1
-        mock_database.users.update_one = Mock(return_value=mock_result)
+        mock_database.users.update_one = AsyncMock(return_value=mock_result)
 
         result = await user_repository.update_user(telegram_id, updates)
 
@@ -181,7 +181,7 @@ class TestUserRepository:
         """Test update returns False when user not found."""
         mock_result = Mock()
         mock_result.modified_count = 0
-        mock_database.users.update_one = Mock(return_value=mock_result)
+        mock_database.users.update_one = AsyncMock(return_value=mock_result)
 
         result = await user_repository.update_user(123456789, {"custom_name": "Test"})
 
@@ -200,7 +200,7 @@ class TestUserRepository:
 
         mock_result = Mock()
         mock_result.modified_count = 1
-        mock_database.users.update_one = Mock(return_value=mock_result)
+        mock_database.users.update_one = AsyncMock(return_value=mock_result)
 
         result = await user_repository.update_user(telegram_id, updates)
 
@@ -216,9 +216,9 @@ class TestUserRepository:
 
         mock_result = Mock()
         mock_result.deleted_count = 1
-        mock_database.users.delete_one = Mock(return_value=mock_result)
-        mock_database.search_cache.delete_many = Mock()
-        mock_database.usage_logs.delete_many = Mock()
+        mock_database.users.delete_one = AsyncMock(return_value=mock_result)
+        mock_database.search_cache.delete_many = AsyncMock()
+        mock_database.usage_logs.delete_many = AsyncMock()
 
         result = await user_repository.delete_user(telegram_id)
 
@@ -231,7 +231,7 @@ class TestUserRepository:
         """Test deletion returns False when user not found."""
         mock_result = Mock()
         mock_result.deleted_count = 0
-        mock_database.users.delete_one = Mock(return_value=mock_result)
+        mock_database.users.delete_one = AsyncMock(return_value=mock_result)
 
         result = await user_repository.delete_user(123456789)
 
@@ -240,7 +240,7 @@ class TestUserRepository:
     @pytest.mark.asyncio
     async def test_user_exists_true(self, user_repository, mock_database):
         """Test user_exists returns True when user exists."""
-        mock_database.users.count_documents = Mock(return_value=1)
+        mock_database.users.count_documents = AsyncMock(return_value=1)
 
         result = await user_repository.user_exists(123456789)
 
@@ -249,7 +249,7 @@ class TestUserRepository:
     @pytest.mark.asyncio
     async def test_user_exists_false(self, user_repository, mock_database):
         """Test user_exists returns False when user doesn't exist."""
-        mock_database.users.count_documents = Mock(return_value=0)
+        mock_database.users.count_documents = AsyncMock(return_value=0)
 
         result = await user_repository.user_exists(123456789)
 
@@ -262,7 +262,7 @@ class TestUserRepository:
 
         mock_result = Mock()
         mock_result.modified_count = 1
-        mock_database.users.update_one = Mock(return_value=mock_result)
+        mock_database.users.update_one = AsyncMock(return_value=mock_result)
 
         result = await user_repository.update_spotify_tokens(
             telegram_id, "new_access", "new_refresh", datetime.utcnow()
@@ -273,7 +273,7 @@ class TestUserRepository:
     @pytest.mark.asyncio
     async def test_get_user_count(self, user_repository, mock_database):
         """Test getting total user count."""
-        mock_database.users.count_documents = Mock(return_value=42)
+        mock_database.users.count_documents = AsyncMock(return_value=42)
 
         result = await user_repository.get_user_count()
 
@@ -301,7 +301,7 @@ class TestSearchCacheRepository:
         query = "test query"
         track_id = "spotify:track:123"
 
-        mock_database.search_cache.find_one = Mock(
+        mock_database.search_cache.find_one = AsyncMock(
             return_value={
                 "query_string": query,
                 "spotify_track_id": track_id,
@@ -315,7 +315,7 @@ class TestSearchCacheRepository:
     @pytest.mark.asyncio
     async def test_get_cached_result_miss(self, cache_repository, mock_database):
         """Test cache miss."""
-        mock_database.search_cache.find_one = Mock(return_value=None)
+        mock_database.search_cache.find_one = AsyncMock(return_value=None)
 
         result = await cache_repository.get_cached_result("nonexistent")
 
@@ -327,7 +327,7 @@ class TestSearchCacheRepository:
         query = "test query"
         track_id = "spotify:track:123"
 
-        mock_database.search_cache.replace_one = Mock()
+        mock_database.search_cache.replace_one = AsyncMock()
 
         result = await cache_repository.cache_result(query, track_id)
 
@@ -339,7 +339,7 @@ class TestSearchCacheRepository:
         """Test cache clearing."""
         mock_result = Mock()
         mock_result.deleted_count = 10
-        mock_database.search_cache.delete_many = Mock(return_value=mock_result)
+        mock_database.search_cache.delete_many = AsyncMock(return_value=mock_result)
 
         result = await cache_repository.clear_cache()
 
@@ -367,7 +367,7 @@ class TestUsageLogsRepository:
         telegram_id = 123456789
         command = "/play"
 
-        mock_database.usage_logs.insert_one = Mock()
+        mock_database.usage_logs.insert_one = AsyncMock()
 
         result = await logs_repository.log_command(telegram_id, command)
 
@@ -381,7 +381,7 @@ class TestUsageLogsRepository:
         command = "/search"
         extra_data = {"query": "test song"}
 
-        mock_database.usage_logs.insert_one = Mock()
+        mock_database.usage_logs.insert_one = AsyncMock()
 
         result = await logs_repository.log_command(telegram_id, command, extra_data)
 
@@ -398,7 +398,10 @@ class TestUsageLogsRepository:
             {"_id": "/play", "count": 10},
             {"_id": "/search", "count": 5},
         ]
-        mock_database.usage_logs.aggregate = Mock(return_value=mock_results)
+        # Mock cursor with to_list method
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=mock_results)
+        mock_database.usage_logs.aggregate = Mock(return_value=mock_cursor)
 
         result = await logs_repository.get_user_stats(telegram_id, days=30)
 
@@ -409,7 +412,10 @@ class TestUsageLogsRepository:
     @pytest.mark.asyncio
     async def test_get_user_stats_no_data(self, logs_repository, mock_database):
         """Test getting stats with no data."""
-        mock_database.usage_logs.aggregate = Mock(return_value=[])
+        # Mock cursor with to_list method
+        mock_cursor = AsyncMock()
+        mock_cursor.to_list = AsyncMock(return_value=[])
+        mock_database.usage_logs.aggregate = Mock(return_value=mock_cursor)
 
         result = await logs_repository.get_user_stats(123456789)
 
@@ -423,7 +429,7 @@ class TestUsageLogsRepository:
 
         mock_result = Mock()
         mock_result.deleted_count = 25
-        mock_database.usage_logs.delete_many = Mock(return_value=mock_result)
+        mock_database.usage_logs.delete_many = AsyncMock(return_value=mock_result)
 
         result = await logs_repository.delete_user_logs(telegram_id)
 
@@ -445,7 +451,7 @@ class TestRepositoryErrorHandling:
         """Test user creation handles database errors."""
         from pymongo.errors import PyMongoError
 
-        mock_database.users.insert_one = Mock(side_effect=PyMongoError("DB error"))
+        mock_database.users.insert_one = AsyncMock(side_effect=PyMongoError("DB error"))
 
         with patch("rspotify_bot.services.repository.get_encryption_service"):
             repo = UserRepository(mock_database)
@@ -458,7 +464,7 @@ class TestRepositoryErrorHandling:
         """Test user retrieval handles database errors."""
         from pymongo.errors import PyMongoError
 
-        mock_database.users.find_one = Mock(side_effect=PyMongoError("DB error"))
+        mock_database.users.find_one = AsyncMock(side_effect=PyMongoError("DB error"))
 
         with patch("rspotify_bot.services.repository.get_encryption_service"):
             repo = UserRepository(mock_database)
