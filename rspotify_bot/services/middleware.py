@@ -371,8 +371,13 @@ class TemporaryStorage:
                 if not doc:
                     return None
                 
+                # MongoDB returns naive datetime, make it timezone-aware for comparison
+                expires_at = doc["expires_at"]
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                
                 # Check expiry
-                if doc["expires_at"] < datetime.now(timezone.utc):
+                if expires_at < datetime.now(timezone.utc):
                     await loop.run_in_executor(
                         None,
                         lambda: self._database.temp_storage.delete_one({"_id": key})
