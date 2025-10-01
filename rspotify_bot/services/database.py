@@ -150,6 +150,16 @@ class DatabaseService:
             ]
             self.database.rate_limits.create_indexes(ratelimit_indexes)
 
+            # OAuth codes collection indexes (Story 1.4)
+            oauth_codes_indexes = [
+                IndexModel([("telegram_id", ASCENDING)]),
+                IndexModel([("state", ASCENDING)]),
+                IndexModel(
+                    [("expires_at", ASCENDING)], expireAfterSeconds=0
+                ),  # TTL index - documents auto-delete when expires_at < now
+            ]
+            self.database.oauth_codes.create_indexes(oauth_codes_indexes)
+
             logger.info("Database indexes created successfully")
 
         except Exception as e:

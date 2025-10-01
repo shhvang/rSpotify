@@ -215,6 +215,7 @@ class RSpotifyBot:
     ) -> None:
         """
         Handle /start command.
+        Also handles OAuth deep links with code IDs (Spotipie-style flow).
 
         Args:
             update: Telegram update object
@@ -238,6 +239,16 @@ class RSpotifyBot:
         if not update.message:
             return
 
+        # Check if this is an OAuth callback with code ID
+        # Format: /start CODE_ID (from Telegram deep link)
+        message_text = update.message.text
+        if message_text and len(message_text.split()) > 1:
+            code_id = message_text.split()[1]
+            
+            # Handle OAuth code retrieval and token exchange
+            await self._handle_oauth_code(update, code_id, user.id)
+            return
+
         # Create or update user record
         if self.db_service:
             existing_user = await self.db_service.get_user(user.id)
@@ -249,12 +260,104 @@ class RSpotifyBot:
             f"Hello <b>{user.first_name or 'there'}</b>! I'm here to help you share "
             f"and discover amazing music through Spotify integration.\n\n"
             f"<b>Quick Start:</b>\n"
+            f"• Use <code>/login</code> to connect your Spotify account\n"
             f"• Use <code>/ping</code> to test bot connectivity\n"
             f"• Use <code>/help</code> to see all available commands\n\n"
             f"<i>Let's make some music together!</i> 🎶"
         )
 
         await update.message.reply_html(welcome_message)
+
+    async def _handle_oauth_code(
+        self, update: Update, code_id: str, telegram_id: int
+    ) -> None:
+        """
+        Handle OAuth code retrieval and token exchange (Spotipie-style flow).
+        
+        Args:
+            update: Telegram update object
+            code_id: MongoDB ObjectId of the stored auth code
+            telegram_id: Telegram user ID
+        """
+        from bson import ObjectId
+        from bson.errors import InvalidId
+        from .services.auth import SpotifyAuthService
+        from .services.repository import UserRepository
+        
+        try:
+            # Validate code_id format
+            try:
+                obj_id = ObjectId(code_id)
+            except (InvalidId, TypeError):
+                await update.message.reply_text(
+                    "❌ Invalid authorization link. Please use /login to start the OAuth flow."
+                )
+                return
+            
+            # Retrieve auth code from database
+            code_doc = self.db_service.database.oauth_codes.find_one({"_id": obj_id})
+            
+            if not code_doc:
+                await update.message.reply_text(
+                    "❌ Authorization code not found or expired. Please use /login to try again."
+                )
+                return
+            
+            auth_code = code_doc.get("authCode")
+            if not auth_code:
+                await update.message.reply_text(
+                    "❌ Invalid authorization code. Please use /login to try again."
+                )
+                return
+            
+            # Send processing message
+            status_message = await update.message.reply_text(
+                "🔄 Exchanging authorization code for tokens..."
+            )
+            
+            # Exchange code for tokens
+            auth_service = SpotifyAuthService()
+            tokens = await auth_service.exchange_code_for_tokens(auth_code)
+            
+            if not tokens:
+                await status_message.edit_text(
+                    "❌ Failed to exchange authorization code for tokens. Please try /login again."
+                )
+                # Delete used code
+                self.db_service.database.oauth_codes.delete_one({"_id": obj_id})
+                return
+            
+            # Store tokens in database
+            user_repo = UserRepository(self.db_service.database)
+            success = await user_repo.store_spotify_tokens(
+                telegram_id,
+                tokens["access_token"],
+                tokens["refresh_token"],
+                tokens["expires_in"]
+            )
+            
+            # Delete used code from database
+            self.db_service.database.oauth_codes.delete_one({"_id": obj_id})
+            
+            if success:
+                await status_message.edit_text(
+                    "✅ <b>Spotify account connected successfully!</b>\n\n"
+                    "You can now use all Spotify features:\n"
+                    "• <code>/nowplaying</code> - Share what you're listening to\n"
+                    "• <code>/logout</code> - Disconnect your Spotify account\n\n"
+                    "<i>Enjoy the music! 🎶</i>",
+                    parse_mode="HTML"
+                )
+            else:
+                await status_message.edit_text(
+                    "❌ Failed to store tokens. Please try /login again."
+                )
+                
+        except Exception as e:
+            logger.error(f"Error handling OAuth code: {e}", exc_info=True)
+            await update.message.reply_text(
+                "❌ An error occurred while processing your authorization. Please try /login again."
+            )
 
     async def help_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
