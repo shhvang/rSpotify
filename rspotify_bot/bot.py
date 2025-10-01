@@ -319,7 +319,7 @@ class RSpotifyBot:
                 )
                 return
             
-            auth_code = code_doc.get("authCode")
+            auth_code = code_doc.get("auth_code")
             if not auth_code:
                 await update.message.reply_text(
                     "❌ Invalid authorization code. Please use /login to try again."
