@@ -4,7 +4,7 @@ Provides decorators for owner-only commands and Spotify OAuth token management.
 """
 
 import logging
-import httpx
+import aiohttp
 from functools import wraps
 from typing import Callable, Any, Dict, Optional
 from datetime import datetime, timedelta, timezone
@@ -170,8 +170,9 @@ class SpotifyAuthService:
             Exception: If token exchange fails
         """
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
+            timeout = aiohttp.ClientTimeout(total=30.0)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
                     self.SPOTIFY_TOKEN_URL,
                     data={
                         "grant_type": "authorization_code",
@@ -181,31 +182,34 @@ class SpotifyAuthService:
                         "client_secret": self.client_secret,
                     },
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
-                )
+                ) as response:
+                    if response.status != 200:
+                        text = await response.text()
+                        try:
+                            error_data = await response.json()
+                        except:
+                            error_data = {}
+                        error_msg = error_data.get("error_description", text)
+                        logger.error(
+                            f"Token exchange failed: {response.status} - {error_msg}"
+                        )
+                        raise Exception(f"Token exchange failed: {error_msg}")
 
-                if response.status_code != 200:
-                    error_data = response.json() if response.text else {}
-                    error_msg = error_data.get("error_description", response.text)
-                    logger.error(
-                        f"Token exchange failed: {response.status_code} - {error_msg}"
-                    )
-                    raise Exception(f"Token exchange failed: {error_msg}")
+                    data = await response.json()
 
-                data = response.json()
+                    # Calculate expiration timestamp
+                    expires_in = data.get("expires_in", 3600)  # Default 1 hour
+                    expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
 
-                # Calculate expiration timestamp
-                expires_in = data.get("expires_in", 3600)  # Default 1 hour
-                expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+                    logger.info("Successfully exchanged authorization code for tokens")
 
-                logger.info("Successfully exchanged authorization code for tokens")
+                    return {
+                        "access_token": data["access_token"],
+                        "refresh_token": data["refresh_token"],
+                        "expires_at": expires_at,
+                    }
 
-                return {
-                    "access_token": data["access_token"],
-                    "refresh_token": data["refresh_token"],
-                    "expires_at": expires_at,
-                }
-
-        except httpx.HTTPError as e:
+        except aiohttp.ClientError as e:
             logger.error(f"HTTP error during token exchange: {e}")
             raise Exception(f"Network error during token exchange: {e}")
 
@@ -223,8 +227,9 @@ class SpotifyAuthService:
             Exception: If token refresh fails
         """
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
+            timeout = aiohttp.ClientTimeout(total=30.0)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
                     self.SPOTIFY_TOKEN_URL,
                     data={
                         "grant_type": "refresh_token",
@@ -233,41 +238,44 @@ class SpotifyAuthService:
                         "client_secret": self.client_secret,
                     },
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
-                )
-
-                if response.status_code != 200:
-                    error_data = response.json() if response.text else {}
-                    error_msg = error_data.get("error_description", response.text)
-                    logger.error(
-                        f"Token refresh failed: {response.status_code} - {error_msg}"
-                    )
-
-                    # Check for invalid_grant error (refresh token expired)
-                    if error_data.get("error") == "invalid_grant":
-                        raise Exception(
-                            "Refresh token expired. User needs to re-authenticate."
+                ) as response:
+                    if response.status != 200:
+                        text = await response.text()
+                        try:
+                            error_data = await response.json()
+                        except:
+                            error_data = {}
+                        error_msg = error_data.get("error_description", text)
+                        logger.error(
+                            f"Token refresh failed: {response.status} - {error_msg}"
                         )
 
-                    raise Exception(f"Token refresh failed: {error_msg}")
+                        # Check for invalid_grant error (refresh token expired)
+                        if error_data.get("error") == "invalid_grant":
+                            raise Exception(
+                                "Refresh token expired. User needs to re-authenticate."
+                            )
 
-                data = response.json()
+                        raise Exception(f"Token refresh failed: {error_msg}")
 
-                # Calculate expiration timestamp
-                expires_in = data.get("expires_in", 3600)
-                expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+                    data = await response.json()
 
-                # Spotify may or may not return a new refresh token
-                new_refresh_token = data.get("refresh_token", refresh_token)
+                    # Calculate expiration timestamp
+                    expires_in = data.get("expires_in", 3600)
+                    expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
 
-                logger.info("Successfully refreshed access token")
+                    # Spotify may or may not return a new refresh token
+                    new_refresh_token = data.get("refresh_token", refresh_token)
 
-                return {
-                    "access_token": data["access_token"],
-                    "refresh_token": new_refresh_token,
-                    "expires_at": expires_at,
-                }
+                    logger.info("Successfully refreshed access token")
 
-        except httpx.HTTPError as e:
+                    return {
+                        "access_token": data["access_token"],
+                        "refresh_token": new_refresh_token,
+                        "expires_at": expires_at,
+                    }
+
+        except aiohttp.ClientError as e:
             logger.error(f"HTTP error during token refresh: {e}")
             raise Exception(f"Network error during token refresh: {e}")
 

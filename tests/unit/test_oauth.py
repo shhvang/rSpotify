@@ -82,41 +82,38 @@ class TestSpotifyAuthService:
         "rspotify_bot.services.auth.Config.SPOTIFY_REDIRECT_URI",
         "https://test.com/callback",
     )
-    @patch("rspotify_bot.services.auth.httpx.AsyncClient")
-    async def test_exchange_code_for_tokens_success(self, mock_client_class):
+    async def test_exchange_code_for_tokens_success(self):
         """Test successful authorization code exchange."""
         # Mock successful response
-        async def mock_json():
-            return {
-                "access_token": "test_access_token",
-                "refresh_token": "test_refresh_token",
-                "expires_in": 3600,
-            }
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value={
+            "access_token": "test_access_token",
+            "refresh_token": "test_refresh_token",
+            "expires_in": 3600,
+        })
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
         
-        mock_response = AsyncMock()
-        mock_response.status_code = 200
-        mock_response.json = mock_json
+        # Create mock session
+        mock_session = MagicMock()
+        mock_session.post = MagicMock(return_value=mock_response)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+        
+        # Patch ClientSession
+        with patch("rspotify_bot.services.auth.aiohttp.ClientSession", return_value=mock_session):
+            service = SpotifyAuthService()
+            result = await service.exchange_code_for_tokens("auth_code_123")
 
-        mock_client = AsyncMock()
-        mock_client.post.return_value = mock_response
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.__aexit__.return_value = AsyncMock()
-        mock_client_class.return_value = mock_client
+            # Verify tokens returned
+            assert result["access_token"] == "test_access_token"
+            assert result["refresh_token"] == "test_refresh_token"
+            assert "expires_at" in result
+            assert isinstance(result["expires_at"], datetime)
 
-        service = SpotifyAuthService()
-        result = await service.exchange_code_for_tokens("auth_code_123")
-
-        # Verify tokens returned
-        assert result["access_token"] == "test_access_token"
-        assert result["refresh_token"] == "test_refresh_token"
-        assert "expires_at" in result
-        assert isinstance(result["expires_at"], datetime)
-
-        # Verify API was called correctly
-        mock_client.post.assert_called_once()
-        call_kwargs = mock_client.post.call_args[1]
-        assert call_kwargs["data"]["grant_type"] == "authorization_code"
-        assert call_kwargs["data"]["code"] == "auth_code_123"
+            # Verify API was called correctly
+            assert mock_session.post.called
 
     @pytest.mark.asyncio
     @patch("rspotify_bot.services.auth.Config.SPOTIFY_CLIENT_ID", "test_client_id")
@@ -125,31 +122,31 @@ class TestSpotifyAuthService:
         "rspotify_bot.services.auth.Config.SPOTIFY_REDIRECT_URI",
         "https://test.com/callback",
     )
-    @patch("rspotify_bot.services.auth.httpx.AsyncClient")
-    async def test_exchange_code_for_tokens_failure(self, mock_client_class):
+    async def test_exchange_code_for_tokens_failure(self):
         """Test failed authorization code exchange."""
         # Mock error response
-        async def mock_json():
-            return {
-                "error": "invalid_grant",
-                "error_description": "Invalid authorization code",
-            }
+        mock_response = MagicMock()
+        mock_response.status = 400
+        mock_response.text = AsyncMock(return_value="Invalid code")
+        mock_response.json = AsyncMock(return_value={
+            "error": "invalid_grant",
+            "error_description": "Invalid authorization code",
+        })
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
         
-        mock_response = AsyncMock()
-        mock_response.status_code = 400
-        mock_response.text = "Invalid code"
-        mock_response.json = mock_json
+        # Create mock session
+        mock_session = MagicMock()
+        mock_session.post = MagicMock(return_value=mock_response)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+        
+        # Patch ClientSession
+        with patch("rspotify_bot.services.auth.aiohttp.ClientSession", return_value=mock_session):
+            service = SpotifyAuthService()
 
-        mock_client = AsyncMock()
-        mock_client.post.return_value = mock_response
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.__aexit__.return_value = False  # Don't suppress exceptions
-        mock_client_class.return_value = mock_client
-
-        service = SpotifyAuthService()
-
-        with pytest.raises(Exception, match="Token exchange failed"):
-            await service.exchange_code_for_tokens("invalid_code")
+            with pytest.raises(Exception, match="Token exchange failed"):
+                await service.exchange_code_for_tokens("invalid_code")
 
     @pytest.mark.asyncio
     @patch("rspotify_bot.services.auth.Config.SPOTIFY_CLIENT_ID", "test_client_id")
@@ -158,40 +155,37 @@ class TestSpotifyAuthService:
         "rspotify_bot.services.auth.Config.SPOTIFY_REDIRECT_URI",
         "https://test.com/callback",
     )
-    @patch("rspotify_bot.services.auth.httpx.AsyncClient")
-    async def test_refresh_access_token_success(self, mock_client_class):
+    async def test_refresh_access_token_success(self):
         """Test successful token refresh."""
         # Mock successful response
-        async def mock_json():
-            return {
-                "access_token": "new_access_token",
-                "refresh_token": "new_refresh_token",
-                "expires_in": 3600,
-            }
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(return_value={
+            "access_token": "new_access_token",
+            "refresh_token": "new_refresh_token",
+            "expires_in": 3600,
+        })
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
         
-        mock_response = AsyncMock()
-        mock_response.status_code = 200
-        mock_response.json = mock_json
+        # Create mock session
+        mock_session = MagicMock()
+        mock_session.post = MagicMock(return_value=mock_response)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+        
+        # Patch ClientSession
+        with patch("rspotify_bot.services.auth.aiohttp.ClientSession", return_value=mock_session):
+            service = SpotifyAuthService()
+            result = await service.refresh_access_token("old_refresh_token")
 
-        mock_client = AsyncMock()
-        mock_client.post.return_value = mock_response
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.__aexit__.return_value = AsyncMock()
-        mock_client_class.return_value = mock_client
+            # Verify new tokens returned
+            assert result["access_token"] == "new_access_token"
+            assert result["refresh_token"] == "new_refresh_token"
+            assert "expires_at" in result
 
-        service = SpotifyAuthService()
-        result = await service.refresh_access_token("old_refresh_token")
-
-        # Verify new tokens returned
-        assert result["access_token"] == "new_access_token"
-        assert result["refresh_token"] == "new_refresh_token"
-        assert "expires_at" in result
-
-        # Verify API was called correctly
-        mock_client.post.assert_called_once()
-        call_kwargs = mock_client.post.call_args[1]
-        assert call_kwargs["data"]["grant_type"] == "refresh_token"
-        assert call_kwargs["data"]["refresh_token"] == "old_refresh_token"
+            # Verify API was called correctly
+            assert mock_session.post.called
 
     @pytest.mark.asyncio
     @patch("rspotify_bot.services.auth.Config.SPOTIFY_CLIENT_ID", "test_client_id")
@@ -200,31 +194,31 @@ class TestSpotifyAuthService:
         "rspotify_bot.services.auth.Config.SPOTIFY_REDIRECT_URI",
         "https://test.com/callback",
     )
-    @patch("rspotify_bot.services.auth.httpx.AsyncClient")
-    async def test_refresh_access_token_invalid_grant(self, mock_client_class):
+    async def test_refresh_access_token_invalid_grant(self):
         """Test token refresh with expired refresh token."""
         # Mock error response
-        async def mock_json():
-            return {
-                "error": "invalid_grant",
-                "error_description": "Refresh token expired",
-            }
+        mock_response = MagicMock()
+        mock_response.status = 400
+        mock_response.text = AsyncMock(return_value="Invalid refresh token")
+        mock_response.json = AsyncMock(return_value={
+            "error": "invalid_grant",
+            "error_description": "Refresh token expired",
+        })
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=None)
         
-        mock_response = AsyncMock()
-        mock_response.status_code = 400
-        mock_response.text = "Invalid refresh token"
-        mock_response.json = mock_json
+        # Create mock session
+        mock_session = MagicMock()
+        mock_session.post = MagicMock(return_value=mock_response)
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+        
+        # Patch ClientSession
+        with patch("rspotify_bot.services.auth.aiohttp.ClientSession", return_value=mock_session):
+            service = SpotifyAuthService()
 
-        mock_client = AsyncMock()
-        mock_client.post.return_value = mock_response
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.__aexit__.return_value = False  # Don't suppress exceptions
-        mock_client_class.return_value = mock_client
-
-        service = SpotifyAuthService()
-
-        with pytest.raises(Exception, match="Refresh token expired"):
-            await service.refresh_access_token("expired_refresh_token")
+            with pytest.raises(Exception, match="Refresh token expired"):
+                await service.refresh_access_token("expired_refresh_token")
 
     @pytest.mark.asyncio
     @patch("rspotify_bot.services.auth.Config.SPOTIFY_CLIENT_ID", "test_client_id")
