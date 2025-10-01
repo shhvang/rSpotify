@@ -378,11 +378,18 @@ class TestLoginCommandHandler:
         # Execute
         await handle_login(update, context)
 
-        # Verify authorization URL was sent
+        # Verify authorization message was sent
         message.reply_html.assert_called_once()
         call_args = message.reply_html.call_args[0][0]
         assert "Connect Your Spotify Account" in call_args
-        assert "https://spotify.com/auth" in call_args
+        assert "Permissions needed" in call_args
+        
+        # Verify inline button with auth URL was provided
+        call_kwargs = message.reply_html.call_args[1]
+        assert "reply_markup" in call_kwargs
+        keyboard = call_kwargs["reply_markup"]
+        assert len(keyboard.inline_keyboard) > 0
+        assert keyboard.inline_keyboard[0][0].url == "https://spotify.com/auth"
 
         # Verify state was stored
         mock_storage.set.assert_called_once()

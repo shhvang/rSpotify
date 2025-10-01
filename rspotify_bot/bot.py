@@ -262,6 +262,7 @@ class RSpotifyBot:
             code_id = message_text.split()[1]
             
             # Handle OAuth code retrieval and token exchange
+            # Don't show welcome message - OAuth handler will show success/error
             await self._handle_oauth_code(update, code_id, user.id)
             return
 
