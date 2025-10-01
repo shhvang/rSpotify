@@ -467,6 +467,8 @@ async def run_https_server(app: web.Application, cert_path: str, key_path: str, 
 
 async def main():
     """Main entry point for the OAuth callback service."""
+    runners = []  # Initialize runners at the start to avoid UnboundLocalError
+    
     try:
         logger.info('=' * 80)
         logger.info('Starting rSpotify OAuth Callback Service (aiohttp + certbot)')
@@ -506,8 +508,6 @@ async def main():
         cert_path, key_path = await setup_ssl_certificates()
         logger.info(f'SSL certificate path: {cert_path}')
         logger.info(f'SSL key path: {key_path}')
-        
-        runners = []
         
         if cert_path and key_path:
             # Run HTTPS server on port 443
