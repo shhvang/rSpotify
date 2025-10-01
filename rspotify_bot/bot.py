@@ -60,12 +60,15 @@ class RSpotifyBot:
         temp_storage._use_mongodb = True
         logger.info("Temporary storage initialized with MongoDB for cross-process state sharing")
         
-        # Create TTL index on temp_storage collection
-        await self.db_service.database.temp_storage.create_index(
-            "expires_at",
-            expireAfterSeconds=0
-        )
-        logger.info("Created TTL index on temp_storage collection")
+        # Create TTL index on temp_storage collection (synchronous)
+        try:
+            self.db_service.database.temp_storage.create_index(
+                "expires_at",
+                expireAfterSeconds=0
+            )
+            logger.info("Created TTL index on temp_storage collection")
+        except Exception as e:
+            logger.warning(f"Failed to create TTL index (may already exist): {e}")
         
         await temp_storage.start_cleanup_task()
         logger.info("Temporary storage cleanup task started")
