@@ -311,7 +311,7 @@ class RSpotifyBot:
                 return
             
             # Retrieve auth code from database
-            code_doc = self.db_service.database.oauth_codes.find_one({"_id": obj_id})
+            code_doc = await self.db_service.database.oauth_codes.find_one({"_id": obj_id})
             
             if not code_doc:
                 await update.message.reply_text(
@@ -340,7 +340,7 @@ class RSpotifyBot:
                     "❌ Failed to exchange authorization code for tokens. Please try /login again."
                 )
                 # Delete used code
-                self.db_service.database.oauth_codes.delete_one({"_id": obj_id})
+                await self.db_service.database.oauth_codes.delete_one({"_id": obj_id})
                 return
             
             # Store tokens in database
@@ -353,7 +353,7 @@ class RSpotifyBot:
             )
             
             # Delete used code from database
-            self.db_service.database.oauth_codes.delete_one({"_id": obj_id})
+            await self.db_service.database.oauth_codes.delete_one({"_id": obj_id})
             
             if success:
                 await status_message.edit_text(

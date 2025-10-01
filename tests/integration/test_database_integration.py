@@ -41,11 +41,11 @@ async def db_service():
     # Cleanup: delete test data
     if service.database is not None:
         # Clean up test users
-        service.database.users.delete_many({"telegram_id": {"$gte": 999000000}})
-        service.database.search_cache.delete_many(
+        await service.database.users.delete_many({"telegram_id": {"$gte": 999000000}})
+        await service.database.search_cache.delete_many(
             {"query_string": {"$regex": "^test_"}}
         )
-        service.database.usage_logs.delete_many({"telegram_id": {"$gte": 999000000}})
+        await service.database.usage_logs.delete_many({"telegram_id": {"$gte": 999000000}})
 
     await service.disconnect()
 
@@ -289,7 +289,7 @@ class TestSearchCacheRepositoryIntegration:
         assert result == track_id
 
         # Cleanup
-        db_service.database.search_cache.delete_one({"query_string": query})
+        await db_service.database.search_cache.delete_one({"query_string": query})
 
     @pytest.mark.asyncio
     async def test_cache_miss(self, db_service):
@@ -325,7 +325,7 @@ class TestSearchCacheRepositoryIntegration:
         assert count == 1
 
         # Cleanup
-        db_service.database.search_cache.delete_one({"query_string": query})
+        await db_service.database.search_cache.delete_one({"query_string": query})
 
 
 class TestUsageLogsRepositoryIntegration:
