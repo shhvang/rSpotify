@@ -75,23 +75,23 @@ async def handle_login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         auth_service = SpotifyAuthService()
         auth_url = auth_service.get_authorization_url(state)
 
-        # Send authorization URL to user
+        # Send authorization URL to user with inline button
         message = (
             f"<b>🎵 Connect Your Spotify Account</b>\n\n"
-            f"Hello <b>{user_name}</b>!\n\n"
-            f"To use rSpotify Bot, you need to authorize access to your Spotify account.\n\n"
-            f"<b>What you're granting:</b>\n"
-            f"• View your currently playing track\n"
-            f"• Control playback (play, pause, skip)\n"
-            f"• View playback state\n"
-            f"• Modify your playlists\n\n"
-            f"<b>👉 Click the link below to authorize:</b>\n"
-            f"<a href='{auth_url}'>Authorize Spotify</a>\n\n"
-            f"<i>⚠️ This link expires in 5 minutes for security.</i>\n\n"
-            f"After authorization, you'll be redirected to a success page."
+            f"Hi <b>{user_name}</b>! To use rSpotify Bot, please authorize access to your Spotify account.\n\n"
+            f"<b>Permissions needed:</b>\n"
+            f"• 🎧 View currently playing\n"
+            f"• ⏯️ Control playback\n"
+            f"• 📋 Manage playlists\n\n"
+            f"<i>⚠️ Link expires in 5 minutes</i>"
         )
 
-        await update.message.reply_html(message, disable_web_page_preview=True)
+        # Create inline keyboard with authorization button
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔗 Authorize Spotify", url=auth_url)]
+        ])
+
+        await update.message.reply_html(message, reply_markup=keyboard)
 
         logger.info(f"Sent authorization URL to user {telegram_id} with state: {state}")
 
