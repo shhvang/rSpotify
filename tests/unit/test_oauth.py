@@ -86,13 +86,16 @@ class TestSpotifyAuthService:
     async def test_exchange_code_for_tokens_success(self, mock_client_class):
         """Test successful authorization code exchange."""
         # Mock successful response
-        mock_response = Mock()
+        async def mock_json():
+            return {
+                "access_token": "test_access_token",
+                "refresh_token": "test_refresh_token",
+                "expires_in": 3600,
+            }
+        
+        mock_response = AsyncMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "access_token": "test_access_token",
-            "refresh_token": "test_refresh_token",
-            "expires_in": 3600,
-        }
+        mock_response.json = mock_json
 
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
@@ -126,13 +129,16 @@ class TestSpotifyAuthService:
     async def test_exchange_code_for_tokens_failure(self, mock_client_class):
         """Test failed authorization code exchange."""
         # Mock error response
-        mock_response = Mock()
+        async def mock_json():
+            return {
+                "error": "invalid_grant",
+                "error_description": "Invalid authorization code",
+            }
+        
+        mock_response = AsyncMock()
         mock_response.status_code = 400
         mock_response.text = "Invalid code"
-        mock_response.json.return_value = {
-            "error": "invalid_grant",
-            "error_description": "Invalid authorization code",
-        }
+        mock_response.json = mock_json
 
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
@@ -156,13 +162,16 @@ class TestSpotifyAuthService:
     async def test_refresh_access_token_success(self, mock_client_class):
         """Test successful token refresh."""
         # Mock successful response
-        mock_response = Mock()
+        async def mock_json():
+            return {
+                "access_token": "new_access_token",
+                "refresh_token": "new_refresh_token",
+                "expires_in": 3600,
+            }
+        
+        mock_response = AsyncMock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "access_token": "new_access_token",
-            "refresh_token": "new_refresh_token",
-            "expires_in": 3600,
-        }
+        mock_response.json = mock_json
 
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response
@@ -195,13 +204,16 @@ class TestSpotifyAuthService:
     async def test_refresh_access_token_invalid_grant(self, mock_client_class):
         """Test token refresh with expired refresh token."""
         # Mock error response
-        mock_response = Mock()
+        async def mock_json():
+            return {
+                "error": "invalid_grant",
+                "error_description": "Refresh token expired",
+            }
+        
+        mock_response = AsyncMock()
         mock_response.status_code = 400
         mock_response.text = "Invalid refresh token"
-        mock_response.json.return_value = {
-            "error": "invalid_grant",
-            "error_description": "Refresh token expired",
-        }
+        mock_response.json = mock_json
 
         mock_client = AsyncMock()
         mock_client.post.return_value = mock_response

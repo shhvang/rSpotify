@@ -184,14 +184,14 @@ class SpotifyAuthService:
                 )
 
                 if response.status_code != 200:
-                    error_data = response.json() if response.text else {}
+                    error_data = await response.json() if response.text else {}
                     error_msg = error_data.get("error_description", response.text)
                     logger.error(
                         f"Token exchange failed: {response.status_code} - {error_msg}"
                     )
                     raise Exception(f"Token exchange failed: {error_msg}")
 
-                data = response.json()
+                data = await response.json()
 
                 # Calculate expiration timestamp
                 expires_in = data.get("expires_in", 3600)  # Default 1 hour
@@ -236,7 +236,7 @@ class SpotifyAuthService:
                 )
 
                 if response.status_code != 200:
-                    error_data = response.json() if response.text else {}
+                    error_data = await response.json() if response.text else {}
                     error_msg = error_data.get("error_description", response.text)
                     logger.error(
                         f"Token refresh failed: {response.status_code} - {error_msg}"
@@ -250,7 +250,7 @@ class SpotifyAuthService:
 
                     raise Exception(f"Token refresh failed: {error_msg}")
 
-                data = response.json()
+                data = await response.json()
 
                 # Calculate expiration timestamp
                 expires_in = data.get("expires_in", 3600)
