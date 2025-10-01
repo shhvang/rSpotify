@@ -27,12 +27,15 @@ fi
 
 chown -R rspotify:rspotify /opt/rspotify-bot
 
-# Setup virtual environment
+# Remove and recreate virtual environment to fix dependency issues
 cd /opt/rspotify-bot/repo
+rm -rf /opt/rspotify-bot/venv
 python3.11 -m venv /opt/rspotify-bot/venv
 source /opt/rspotify-bot/venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt
+
+# Install dependencies with no cache to ensure fresh versions
+pip install --no-cache-dir -r requirements.txt
 pip install -e .
 
 # Grant Python capability to bind to privileged ports (80, 443) without root
