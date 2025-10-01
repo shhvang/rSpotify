@@ -77,7 +77,7 @@ if [ ! -z "${BETTERTHANVERY_BOT_TOKEN}" ]; then
     # Add to .env
     cat >> /opt/rspotify-bot/repo/.env << EOF
 BETTERTHANVERY_BOT_TOKEN=${BETTERTHANVERY_BOT_TOKEN}
-BETTERTHANVERY_WEB_URL=https://betterthanvery.netlify.app
+BETTERTHANVERY_WEB_URL=https://shhvang.github.io/betterthanvery
 EOF
     
     # Supervisor config
@@ -100,7 +100,7 @@ if [ ! -z "${PERFECTCIRCLE_BOT_TOKEN}" ]; then
     # Add to .env
     cat >> /opt/rspotify-bot/repo/.env << EOF
 PERFECTCIRCLE_BOT_TOKEN=${PERFECTCIRCLE_BOT_TOKEN}
-PERFECTCIRCLE_WEB_URL=https://perfectcircle.netlify.app
+PERFECTCIRCLE_WEB_URL=https://shhvang.github.io/perfect-circle
 EOF
     
     # Supervisor config

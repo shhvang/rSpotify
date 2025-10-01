@@ -15,7 +15,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv('PERFECTCIRCLE_BOT_TOKEN')
-WEB_APP_URL = os.getenv('PERFECTCIRCLE_WEB_URL', 'https://perfectcircle.netlify.app')
+WEB_APP_URL = os.getenv('PERFECTCIRCLE_WEB_URL', 'https://shhvang.github.io/perfect-circle')
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

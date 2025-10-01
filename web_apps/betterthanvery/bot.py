@@ -15,7 +15,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv('BETTERTHANVERY_BOT_TOKEN')
-WEB_APP_URL = os.getenv('BETTERTHANVERY_WEB_URL', 'https://betterthanvery.netlify.app')
+WEB_APP_URL = os.getenv('BETTERTHANVERY_WEB_URL', 'https://shhvang.github.io/betterthanvery')
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
