@@ -26,11 +26,12 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
     
     - name: Install dependencies
       run: |
         pip install --upgrade pip
+        pip install pymongo==4.6.1
+        pip install motor==3.3.2
         pip install -e ".[test]"
     
     - name: Create test environment
