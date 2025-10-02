@@ -253,13 +253,19 @@ def create_protection_wrapper(database_service: DatabaseService) -> Callable:
 
 
 class TemporaryStorage:
-    """Thread-safe temporary storage for OAuth state parameters with TTL."""
+    """Thread-safe temporary storage for OAuth state parameters with TTL.
+    
+    Supports both in-memory storage (for single process) and MongoDB backend
+    (for cross-process sharing between bot and web callback).
+    """
 
     def __init__(self):
         """Initialize temporary storage."""
         self._storage: Dict[str, Dict[str, Any]] = {}
         self._lock = asyncio.Lock()
         self._cleanup_task: Optional[asyncio.Task] = None
+        self._database = None  # MongoDB database for cross-process storage
+        self._use_mongodb = False  # Flag to enable MongoDB backend
 
     async def start_cleanup_task(self):
         """Start background cleanup task for expired entries."""
@@ -302,10 +308,29 @@ class TemporaryStorage:
             value: Value to store
             expiry_seconds: Time to live in seconds (default: 300 = 5 minutes)
         """
-        async with self._lock:
-            expires_at = datetime.now(timezone.utc) + timedelta(seconds=expiry_seconds)
-            self._storage[key] = {"value": value, "expires_at": expires_at}
-            logger.debug(f"Stored key '{key}' with {expiry_seconds}s TTL")
+        expires_at = datetime.now(timezone.utc) + timedelta(seconds=expiry_seconds)
+        
+        if self._use_mongodb and self._database:
+            # Store in MongoDB for cross-process sharing
+            try:
+                self._database.temp_storage.replace_one(
+                    {"key": key},
+                    {
+                        "key": key,
+                        "value": value,
+                        "expires_at": expires_at
+                    },
+                    upsert=True
+                )
+                logger.debug(f"Stored key '{key}' in MongoDB with {expiry_seconds}s TTL")
+            except Exception as e:
+                logger.error(f"Failed to store in MongoDB: {e}")
+                raise
+        else:
+            # Store in memory
+            async with self._lock:
+                self._storage[key] = {"value": value, "expires_at": expires_at}
+                logger.debug(f"Stored key '{key}' in memory with {expiry_seconds}s TTL")
 
     async def get(self, key: str) -> Optional[Any]:
         """
@@ -317,18 +342,39 @@ class TemporaryStorage:
         Returns:
             Stored value if found and not expired, None otherwise
         """
-        async with self._lock:
-            data = self._storage.get(key)
-            if not data:
-                return None
+        if self._use_mongodb and self._database:
+            # Retrieve from MongoDB
+            try:
+                data = self._database.temp_storage.find_one({"key": key})
+                if not data:
+                    logger.debug(f"Key '{key}' not found in MongoDB")
+                    return None
 
-            # Check expiry
-            if data["expires_at"] < datetime.now(timezone.utc):
-                del self._storage[key]
-                logger.debug(f"Key '{key}' expired and removed")
-                return None
+                # Check expiry
+                if data["expires_at"] < datetime.now(timezone.utc):
+                    self._database.temp_storage.delete_one({"key": key})
+                    logger.debug(f"Key '{key}' expired and removed from MongoDB")
+                    return None
 
-            return data["value"]
+                logger.debug(f"Retrieved key '{key}' from MongoDB")
+                return data["value"]
+            except Exception as e:
+                logger.error(f"Failed to retrieve from MongoDB: {e}")
+                return None
+        else:
+            # Retrieve from memory
+            async with self._lock:
+                data = self._storage.get(key)
+                if not data:
+                    return None
+
+                # Check expiry
+                if data["expires_at"] < datetime.now(timezone.utc):
+                    del self._storage[key]
+                    logger.debug(f"Key '{key}' expired and removed")
+                    return None
+
+                return data["value"]
 
     async def delete(self, key: str) -> bool:
         """
@@ -340,12 +386,25 @@ class TemporaryStorage:
         Returns:
             True if key was deleted, False if not found
         """
-        async with self._lock:
-            if key in self._storage:
-                del self._storage[key]
-                logger.debug(f"Deleted key '{key}'")
-                return True
-            return False
+        if self._use_mongodb and self._database:
+            # Delete from MongoDB
+            try:
+                result = self._database.temp_storage.delete_one({"key": key})
+                deleted = result.deleted_count > 0
+                if deleted:
+                    logger.debug(f"Deleted key '{key}' from MongoDB")
+                return deleted
+            except Exception as e:
+                logger.error(f"Failed to delete from MongoDB: {e}")
+                return False
+        else:
+            # Delete from memory
+            async with self._lock:
+                if key in self._storage:
+                    del self._storage[key]
+                    logger.debug(f"Deleted key '{key}' from memory")
+                    return True
+                return False
 
     async def stop_cleanup_task(self):
         """Stop the cleanup background task."""

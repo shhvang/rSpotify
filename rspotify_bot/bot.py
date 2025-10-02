@@ -53,7 +53,22 @@ class RSpotifyBot:
             return
 
         # Initialize temporary storage for OAuth state parameters
+        # Use MongoDB backend for cross-process sharing with web callback
         temp_storage = get_temporary_storage()
+        temp_storage._database = self.db_service.database
+        temp_storage._use_mongodb = True
+        logger.info("Temporary storage configured with MongoDB backend")
+        
+        # Create TTL index on temp_storage collection for automatic cleanup
+        try:
+            self.db_service.database.temp_storage.create_index(
+                "expires_at",
+                expireAfterSeconds=0
+            )
+            logger.info("Created TTL index on temp_storage collection")
+        except Exception as e:
+            logger.debug(f"TTL index may already exist: {e}")
+        
         await temp_storage.start_cleanup_task()
         logger.info("Temporary storage cleanup task started")
 
