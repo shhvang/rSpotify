@@ -86,7 +86,7 @@ class TestDatabaseIndexes:
     @pytest.mark.asyncio
     async def test_users_collection_indexes(self, db_service):
         """Test users collection has required indexes."""
-        indexes = await db_service.database.users.list_indexes().to_list(length=None)
+        indexes = list(db_service.database.users.list_indexes())
         index_names = [idx["name"] for idx in indexes]
 
         # Should have telegram_id unique index
@@ -95,7 +95,7 @@ class TestDatabaseIndexes:
     @pytest.mark.asyncio
     async def test_search_cache_ttl_index(self, db_service):
         """Test search_cache has TTL index."""
-        indexes = await db_service.database.search_cache.list_indexes().to_list(length=None)
+        indexes = list(db_service.database.search_cache.list_indexes())
 
         # Find TTL index
         ttl_index = None
@@ -110,7 +110,7 @@ class TestDatabaseIndexes:
     @pytest.mark.asyncio
     async def test_usage_logs_indexes(self, db_service):
         """Test usage_logs collection has required indexes."""
-        indexes = await db_service.database.usage_logs.list_indexes().to_list(length=None)
+        indexes = list(db_service.database.usage_logs.list_indexes())
         index_names = [idx["name"] for idx in indexes]
 
         # Should have telegram_id and timestamp indexes
@@ -172,7 +172,7 @@ class TestUserRepositoryIntegration:
         assert user["spotify"]["refresh_token"] == "test_refresh_token_67890"
 
         # Verify tokens are encrypted in database
-        raw_user = await db_service.database.users.find_one({"telegram_id": test_telegram_id})
+        raw_user = db_service.database.users.find_one({"telegram_id": test_telegram_id})
         assert raw_user["spotify"]["access_token"] != "test_access_token_12345"
         assert raw_user["spotify"]["refresh_token"] != "test_refresh_token_67890"
 
@@ -215,7 +215,7 @@ class TestUserRepositoryIntegration:
         user = await repo.get_user(test_telegram_id)
         assert user is not None
 
-        log_count = await db_service.database.usage_logs.count_documents(
+        log_count = db_service.database.usage_logs.count_documents(
             {"telegram_id": test_telegram_id}
         )
         assert log_count == 2
@@ -229,7 +229,7 @@ class TestUserRepositoryIntegration:
         assert user is None
 
         # Verify logs are deleted
-        log_count = await db_service.database.usage_logs.count_documents(
+        log_count = db_service.database.usage_logs.count_documents(
             {"telegram_id": test_telegram_id}
         )
         assert log_count == 0
@@ -319,7 +319,7 @@ class TestSearchCacheRepositoryIntegration:
         assert result == track_id_2
 
         # Verify only one entry exists
-        count = await db_service.database.search_cache.count_documents(
+        count = db_service.database.search_cache.count_documents(
             {"query_string": query}
         )
         assert count == 1
@@ -341,7 +341,7 @@ class TestUsageLogsRepositoryIntegration:
         assert logged is True
 
         # Verify log exists
-        log = await db_service.database.usage_logs.find_one(
+        log = db_service.database.usage_logs.find_one(
             {"telegram_id": test_telegram_id, "command": "/play"}
         )
         assert log is not None
@@ -361,7 +361,7 @@ class TestUsageLogsRepositoryIntegration:
         assert logged is True
 
         # Verify extra data is stored
-        log = await db_service.database.usage_logs.find_one(
+        log = db_service.database.usage_logs.find_one(
             {"telegram_id": test_telegram_id, "command": "/play"}
         )
         assert log["track_id"] == "spotify:track:123"
@@ -404,7 +404,7 @@ class TestUsageLogsRepositoryIntegration:
         await repo.log_command(test_telegram_id, "/help")
 
         # Verify logs exist
-        count_before = await db_service.database.usage_logs.count_documents(
+        count_before = db_service.database.usage_logs.count_documents(
             {"telegram_id": test_telegram_id}
         )
         assert count_before == 3
@@ -414,7 +414,7 @@ class TestUsageLogsRepositoryIntegration:
         assert deleted_count == 3
 
         # Verify logs are gone
-        count_after = await db_service.database.usage_logs.count_documents(
+        count_after = db_service.database.usage_logs.count_documents(
             {"telegram_id": test_telegram_id}
         )
         assert count_after == 0
@@ -448,7 +448,7 @@ class TestEncryptionIntegration:
         assert user["spotify"]["refresh_token"] == original_refresh
 
         # Verify encryption in raw database
-        raw_user = await db_service.database.users.find_one({"telegram_id": test_telegram_id})
+        raw_user = db_service.database.users.find_one({"telegram_id": test_telegram_id})
         encrypted_access = raw_user["spotify"]["access_token"]
         encrypted_refresh = raw_user["spotify"]["refresh_token"]
 

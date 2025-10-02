@@ -171,7 +171,7 @@ class TestUserRepository:
         mock_result.modified_count = 1
         mock_result.matched_count = 1
         mock_result.upserted_id = None
-        mock_database.users.update_one = AsyncMock(return_value=mock_result)
+        mock_database.users.update_one = Mock(return_value=mock_result)
 
         result = await user_repository.update_user(telegram_id, updates)
 
@@ -185,7 +185,7 @@ class TestUserRepository:
         mock_result.modified_count = 0
         mock_result.matched_count = 0
         mock_result.upserted_id = "new_user_id"  # Indicates upsert created new document
-        mock_database.users.update_one = AsyncMock(return_value=mock_result)
+        mock_database.users.update_one = Mock(return_value=mock_result)
 
         result = await user_repository.update_user(123456789, {"custom_name": "Test"})
 
@@ -206,7 +206,7 @@ class TestUserRepository:
         mock_result.modified_count = 1
         mock_result.matched_count = 1
         mock_result.upserted_id = None
-        mock_database.users.update_one = AsyncMock(return_value=mock_result)
+        mock_database.users.update_one = Mock(return_value=mock_result)
 
         result = await user_repository.update_user(telegram_id, updates)
 
@@ -270,7 +270,7 @@ class TestUserRepository:
         mock_result.modified_count = 1
         mock_result.matched_count = 1
         mock_result.upserted_id = None
-        mock_database.users.update_one = AsyncMock(return_value=mock_result)
+        mock_database.users.update_one = Mock(return_value=mock_result)
 
         result = await user_repository.update_spotify_tokens(
             telegram_id, "new_access", "new_refresh", datetime.utcnow()

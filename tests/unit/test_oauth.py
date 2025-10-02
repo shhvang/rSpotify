@@ -388,7 +388,12 @@ class TestLoginCommandHandler:
         message.reply_html.assert_called_once()
         call_args = message.reply_html.call_args[0][0]
         assert "Connect Your Spotify Account" in call_args
-        assert "https://spotify.com/auth" in call_args
+        # URL is in the inline keyboard, not the message text
+        call_kwargs = message.reply_html.call_args[1]
+        assert "reply_markup" in call_kwargs
+        keyboard = call_kwargs["reply_markup"]
+        # Verify URL is in the inline keyboard button
+        assert keyboard.inline_keyboard[0][0].url == "https://spotify.com/auth"
 
         # Verify state was stored
         mock_storage.set.assert_called_once()

@@ -184,7 +184,7 @@ class UserRepository:
             updates["updated_at"] = datetime.utcnow()
 
             # Use upsert to create user if doesn't exist
-            result = await self.collection.update_one(
+            result = self.collection.update_one(
                 {"telegram_id": telegram_id}, 
                 {"$set": updates},
                 upsert=True
