@@ -5,7 +5,7 @@ Implements repository pattern for clean data access abstraction.
 
 import logging
 from typing import Optional, Dict, Any, cast
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pymongo.database import Database
 from pymongo.errors import DuplicateKeyError
 
@@ -79,8 +79,8 @@ class UserRepository:
                 "telegram_id": telegram_id,
                 "custom_name": custom_name,
                 "spotify": encrypted_spotify,
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
             }
 
             self.collection.insert_one(user_doc)
@@ -181,7 +181,7 @@ class UserRepository:
                     )
 
             # Add updated_at timestamp
-            updates["updated_at"] = datetime.utcnow()
+            updates["updated_at"] = datetime.now(timezone.utc)
 
             # Use upsert to create user if doesn't exist
             result = self.collection.update_one(
@@ -345,7 +345,7 @@ class SearchCacheRepository:
             cache_doc = {
                 "query_string": query,
                 "spotify_track_id": spotify_track_id,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
             }
 
             self.collection.replace_one({"query_string": query}, cache_doc, upsert=True)
@@ -408,7 +408,7 @@ class UsageLogsRepository:
             log_doc = {
                 "telegram_id": telegram_id,
                 "command": command,
-                "timestamp": datetime.utcnow(),
+                "timestamp": datetime.now(timezone.utc),
             }
 
             if extra_data:
@@ -435,7 +435,7 @@ class UsageLogsRepository:
         """
         try:
             telegram_id = validate_telegram_id(telegram_id)
-            since_date = datetime.utcnow() - timedelta(days=days)
+            since_date = datetime.now(timezone.utc) - timedelta(days=days)
 
             pipeline = [
                 {
