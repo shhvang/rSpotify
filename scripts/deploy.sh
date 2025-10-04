@@ -19,7 +19,11 @@ git config --global --add safe.directory /opt/rspotify-bot/repo
 # Clone/update repository
 if [ -d "/opt/rspotify-bot/repo" ]; then
     cd /opt/rspotify-bot/repo
-    git pull origin main
+    echo "📥 Fetching latest code..."
+    git fetch --tags origin main
+    echo "🧹 Resetting repository to match remote main"
+    git reset --hard origin/main
+    git clean -fd
 else
     git clone https://github.com/shhvang/rSpotify.git /opt/rspotify-bot/repo
     git config --global --add safe.directory /opt/rspotify-bot/repo
@@ -32,8 +36,8 @@ cd /opt/rspotify-bot/repo
 python3.11 -m venv /opt/rspotify-bot/venv
 source /opt/rspotify-bot/venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt
-pip install -e .
+pip install --upgrade -r requirements.txt
+pip install --upgrade -e .
 
 # Grant Python capability to bind to privileged ports (80, 443) without root
 # The venv python is a symlink, so we need to apply setcap to the real binary
