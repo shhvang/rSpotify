@@ -300,13 +300,8 @@ async def spotify_callback(request: web.Request) -> web.Response:
             'expires_at': datetime.now(timezone.utc) + timedelta(minutes=10)
         }
 
-        loop = asyncio.get_running_loop()
-
-        def _insert_code():
-            return db_service.database.oauth_codes.insert_one(code_doc)
-
         try:
-            result = await loop.run_in_executor(None, _insert_code)
+            result = await db_service.database.oauth_codes.insert_one(code_doc)
         except PyMongoError as e:
             logger.error('Failed to store auth code in database: %s', e, exc_info=True)
             return web.Response(
