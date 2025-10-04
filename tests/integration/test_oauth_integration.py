@@ -10,9 +10,6 @@ import asyncio
 from unittest.mock import patch, AsyncMock
 from datetime import datetime, timedelta
 
-# Test configuration
-pytest_plugins = ('pytest_asyncio',)
-
 # Skip tests if Spotify credentials not configured (e.g., in CI/CD)
 skip_if_no_credentials = pytest.mark.skipif(
     not os.getenv('SPOTIFY_CLIENT_ID') or not os.getenv('SPOTIFY_CLIENT_SECRET'),

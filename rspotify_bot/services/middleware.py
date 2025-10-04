@@ -9,6 +9,9 @@ import asyncio
 from typing import Callable, Dict, Any, Optional
 from datetime import datetime, timedelta, timezone
 from functools import wraps
+
+from pymongo.database import Database as MongoDatabase
+from pymongo.errors import PyMongoError
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -264,7 +267,7 @@ class TemporaryStorage:
         self._storage: Dict[str, Dict[str, Any]] = {}
         self._lock = asyncio.Lock()
         self._cleanup_task: Optional[asyncio.Task] = None
-        self._database = None  # MongoDB database for cross-process storage
+        self._database: Optional[MongoDatabase] = None  # MongoDB database for cross-process storage
         self._use_mongodb = False  # Flag to enable MongoDB backend
 
     async def start_cleanup_task(self):
@@ -415,6 +418,35 @@ class TemporaryStorage:
             except asyncio.CancelledError:
                 pass
             logger.info("Temporary storage cleanup task stopped")
+
+    def configure_backend(self, database: Optional[MongoDatabase]) -> None:
+        """Configure the storage backend for cross-process sharing."""
+
+        if database is None:
+            if self._use_mongodb:
+                logger.warning(
+                    "MongoDB backend unavailable; falling back to in-memory temporary storage"
+                )
+            self._database = None
+            self._use_mongodb = False
+            return
+
+        self._database = database
+        if not self._use_mongodb:
+            logger.info("Temporary storage configured with MongoDB backend")
+        self._use_mongodb = True
+
+        try:
+            database.temp_storage.create_index("expires_at", expireAfterSeconds=0)
+            logger.debug("TTL index ensured on temp_storage collection")
+        except PyMongoError as exc:
+            logger.warning("Failed to ensure temp_storage TTL index: %s", exc)
+
+    @property
+    def uses_mongodb(self) -> bool:
+        """Return True when the storage is backed by MongoDB."""
+
+        return self._use_mongodb
 
 
 # Global temporary storage instance

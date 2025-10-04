@@ -4,9 +4,8 @@ Tests encryption, repository operations, and data integrity.
 """
 
 import pytest
-import pytest_asyncio
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from cryptography.fernet import Fernet
 
 from rspotify_bot.services.database import DatabaseService
@@ -21,18 +20,10 @@ from rspotify_bot.config import config
 
 
 @pytest.fixture(scope="module")
-def event_loop():
-    """Create event loop for async tests."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest_asyncio.fixture(scope="module")
-async def db_service():
+def db_service():
     """Create and connect to database service."""
     service = DatabaseService()
-    connected = await service.connect()
+    connected = asyncio.run(service.connect())
 
     if not connected:
         pytest.skip("Database connection not available")
@@ -48,7 +39,7 @@ async def db_service():
         )
         service.database.usage_logs.delete_many({"telegram_id": {"$gte": 999000000}})
 
-    await service.disconnect()
+    asyncio.run(service.disconnect())
 
 
 @pytest.fixture
@@ -154,7 +145,7 @@ class TestUserRepositoryIntegration:
         tokens = {
             "access_token": "test_access_token_12345",
             "refresh_token": "test_refresh_token_67890",
-            "expires_at": datetime.utcnow(),
+            "expires_at": datetime.now(timezone.utc),
         }
 
         # Create user with tokens
@@ -437,7 +428,7 @@ class TestEncryptionIntegration:
         tokens = {
             "access_token": original_access,
             "refresh_token": original_refresh,
-            "expires_at": datetime.utcnow(),
+            "expires_at": datetime.now(timezone.utc),
         }
 
         # Create user with tokens

@@ -55,21 +55,10 @@ class RSpotifyBot:
         # Initialize temporary storage for OAuth state parameters
         # Use MongoDB backend for cross-process sharing with web callback
         temp_storage = get_temporary_storage()
-        temp_storage._database = self.db_service.database
-        temp_storage._use_mongodb = self.db_service.database is not None
+        temp_storage.configure_backend(self.db_service.database)
 
-        if temp_storage._use_mongodb:
-            logger.info("Temporary storage configured with MongoDB backend")
-
-            # Create TTL index on temp_storage collection for automatic cleanup
-            try:
-                self.db_service.database.temp_storage.create_index(
-                    "expires_at",
-                    expireAfterSeconds=0
-                )
-                logger.info("Created TTL index on temp_storage collection")
-            except Exception as e:
-                logger.debug(f"TTL index may already exist: {e}")
+        if temp_storage.uses_mongodb:
+            logger.info("Temporary storage ready with MongoDB backend")
         else:
             logger.info("Temporary storage using in-memory backend")
         
@@ -315,29 +304,29 @@ class RSpotifyBot:
             
             # Retrieve auth code from database
             code_doc = self.db_service.database.oauth_codes.find_one({"_id": obj_id})
-            
+
             if not code_doc:
                 await update.message.reply_text(
                     "❌ Authorization code not found or expired. Please use /login to try again."
                 )
                 return
-            
-            auth_code = code_doc.get("authCode")
+
+            auth_code = code_doc.get("auth_code")
             if not auth_code:
                 await update.message.reply_text(
                     "❌ Invalid authorization code. Please use /login to try again."
                 )
                 return
-            
+
             # Send processing message
             status_message = await update.message.reply_text(
                 "🔄 Exchanging authorization code for tokens..."
             )
-            
+
             # Exchange code for tokens
             auth_service = SpotifyAuthService()
             tokens = await auth_service.exchange_code_for_tokens(auth_code)
-            
+
             if not tokens:
                 await status_message.edit_text(
                     "❌ Failed to exchange authorization code for tokens. Please try /login again."
@@ -345,19 +334,19 @@ class RSpotifyBot:
                 # Delete used code
                 self.db_service.database.oauth_codes.delete_one({"_id": obj_id})
                 return
-            
+
             # Store tokens in database
             user_repo = UserRepository(self.db_service.database)
-            success = await user_repo.store_spotify_tokens(
+            success = await user_repo.update_spotify_tokens(
                 telegram_id,
                 tokens["access_token"],
                 tokens["refresh_token"],
-                tokens["expires_in"]
+                tokens.get("expires_at"),
             )
-            
+
             # Delete used code from database
             self.db_service.database.oauth_codes.delete_one({"_id": obj_id})
-            
+
             if success:
                 await status_message.edit_text(
                     "✅ <b>Spotify account connected successfully!</b>\n\n"
