@@ -478,7 +478,7 @@ def require_spotify_auth(func: Callable) -> Callable:
         try:
             # Get database service
             db_service = cast(DatabaseService, context.bot_data.get("db_service"))
-            if not db_service or db_service.database is None:
+            if db_service is None or db_service.database is None:
                 logger.error("Database service unavailable")
                 await update.message.reply_html(
                     "<b>❌ Error</b>\n\n"

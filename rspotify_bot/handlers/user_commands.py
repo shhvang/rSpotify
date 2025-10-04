@@ -45,7 +45,7 @@ async def handle_login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     try:
         # Check if user already has Spotify connected
         db_service = cast(DatabaseService, context.bot_data.get("db_service"))
-        if not db_service or db_service.database is None:
+        if db_service is None or db_service.database is None:
             await update.message.reply_html(
                 "<b>❌ Error</b>\n\n"
                 "Service temporarily unavailable. Please try again later."
@@ -224,7 +224,7 @@ async def handle_logout_callback(
         try:
             db_service = cast(DatabaseService, context.bot_data.get("db_service"))
 
-            if not db_service or db_service.database is None:
+            if db_service is None or db_service.database is None:
                 await query.edit_message_text(
                     "<b>❌ Error</b>\n\nDatabase service unavailable. Please try again later.",
                     parse_mode="HTML",
@@ -343,7 +343,7 @@ async def handle_export_data(
     try:
         db_service = cast(DatabaseService, context.bot_data.get("db_service"))
 
-        if not db_service or db_service.database is None:
+        if db_service is None or db_service.database is None:
             await update.message.reply_text(
                 "<b>❌ Error</b>\n\nDatabase service unavailable.", parse_mode="HTML"
             )
