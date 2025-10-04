@@ -60,6 +60,7 @@ addopts = [
 ]
 markers = [
     "asyncio: mark test as requiring the asyncio test harness",
+    "integration: mark test as integration test requiring external services",
 ]
 [tool.setuptools.packages.find]
 where = ["."]
