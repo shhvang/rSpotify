@@ -6,7 +6,8 @@ Tests for OAuth flow, temporary storage, and middleware.
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, Mock, patch, MagicMock
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from telegram import Update, User, Message, Chat
 from telegram.ext import ContextTypes
 from urllib.parse import urlparse, parse_qs
@@ -258,6 +259,41 @@ class TestTemporaryStorage:
         """Test storing and retrieving values."""
         storage = TemporaryStorage()
         await storage.set("test_key", "test_value", expiry_seconds=60)
+
+        value = await storage.get("test_key")
+        assert value == "test_value"
+
+    @pytest.mark.asyncio
+    async def test_get_with_naive_mongodb_datetime(self):
+        """Ensure MongoDB documents with naive UTC datetimes are handled correctly."""
+        storage = TemporaryStorage()
+
+        # Simulate MongoDB backend returning a naive datetime (UTC) for expires_at
+        future_expiry = (
+            datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=60)
+        )
+
+        class FakeCollection:
+            def __init__(self, document):
+                self.document = document
+
+            def find_one(self, query):
+                return self.document
+
+            def delete_one(self, query):
+                self.document = None
+                return SimpleNamespace(deleted_count=1)
+
+        storage._use_mongodb = True
+        storage._database = SimpleNamespace(
+            temp_storage=FakeCollection(
+                {
+                    "key": "test_key",
+                    "value": "test_value",
+                    "expires_at": future_expiry,
+                }
+            )
+        )
 
         value = await storage.get("test_key")
         assert value == "test_value"
