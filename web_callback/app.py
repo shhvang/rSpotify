@@ -301,7 +301,8 @@ async def spotify_callback(request: web.Request) -> web.Response:
         }
 
         try:
-            result = await db_service.database.oauth_codes.insert_one(code_doc)
+            insert_oauth_code = db_service.database.oauth_codes.insert_one
+            result = await asyncio.to_thread(insert_oauth_code, code_doc)
         except PyMongoError as e:
             logger.error('Failed to store auth code in database: %s', e, exc_info=True)
             return web.Response(
