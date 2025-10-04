@@ -124,11 +124,15 @@ develop (testing)
 #### 2. Test Workflow (`.github/workflows/develop.yml`)
 - **Trigger**: Push to `develop` branch
 - **Environment**: Test/Staging
+- **Deployment Exclusions**: `web_apps/` directory excluded from test deployments
+- **Database**: `rspotify_test` (separate from production)
 - **Secrets Required**:
   - `TELEGRAM_BOT_TOKEN_TEST` (test bot) ⚠️ **MUST ADD TO SECRETS**
+  - `MONGODB_URI_TEST` (connection string with `rspotify_test` database)
   - `SSH_PRIVATE_KEY_TEST` (or reuse production if same server)
   - `SSH_HOST_TEST` (or reuse production if same server)
   - `SSH_USER_TEST` (or reuse production if same server)
+  - Other test environment secrets
   - Other test environment secrets
 
 ### Workflow Differences
