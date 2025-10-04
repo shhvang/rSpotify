@@ -4,6 +4,7 @@ Tests encryption, repository operations, and data integrity.
 """
 
 import pytest
+import pytest_asyncio
 import asyncio
 from datetime import datetime, timedelta
 from cryptography.fernet import Fernet
@@ -27,7 +28,7 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(scope="module")
+@pytest_asyncio.fixture(scope="module")
 async def db_service():
     """Create and connect to database service."""
     service = DatabaseService()

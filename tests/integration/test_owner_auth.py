@@ -4,6 +4,7 @@ Tests real database interactions for owner-only features.
 """
 
 import pytest
+import pytest_asyncio
 from unittest.mock import patch
 from datetime import datetime
 
@@ -40,7 +41,7 @@ class TestOwnerAuthIntegration:
 class TestBlacklistIntegration:
     """Integration tests for blacklist functionality with database."""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def db_service(self):
         """Create database service for testing."""
         db = DatabaseService()
@@ -85,7 +86,7 @@ class TestBlacklistIntegration:
 class TestRateLimitIntegration:
     """Integration tests for rate limiting with database."""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def db_service(self):
         """Create database service for testing."""
         return DatabaseService()
@@ -120,7 +121,7 @@ class TestRateLimitIntegration:
 class TestStatisticsIntegration:
     """Integration tests for statistics collection."""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def db_service(self):
         """Create database service for testing."""
         return DatabaseService()
@@ -161,7 +162,7 @@ class TestStatisticsIntegration:
 class TestOwnerCommandsEndToEnd:
     """End-to-end integration tests for owner commands."""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def db_service(self):
         """Create database service for testing."""
         return DatabaseService()
@@ -217,7 +218,7 @@ class TestDatabaseConnectionHandling:
 class TestErrorScenarios:
     """Test error handling in integration scenarios."""
 
-    @pytest.fixture
+    @pytest_asyncio.fixture
     async def db_service(self):
         """Create database service."""
         return DatabaseService()
