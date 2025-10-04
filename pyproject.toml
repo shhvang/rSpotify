@@ -53,6 +53,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+pythonpath = ["."]
 addopts = [
     "--strict-markers",
     "--strict-config",
@@ -60,11 +61,9 @@ addopts = [
     "--cov-report=term-missing:skip-covered",
     "--cov-report=html:htmlcov",
 ]
-asyncio_mode = "auto"
 markers = [
-    "asyncio: mark test as requiring the pytest-asyncio plugin",
+    "asyncio: mark test as requiring the asyncio test harness",
 ]
-
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["rspotify_bot*"]
