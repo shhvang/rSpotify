@@ -310,7 +310,7 @@ class TemporaryStorage:
         """
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=expiry_seconds)
         
-        if self._use_mongodb and self._database:
+        if self._use_mongodb and self._database is not None:
             # Store in MongoDB for cross-process sharing
             try:
                 self._database.temp_storage.replace_one(
@@ -342,7 +342,7 @@ class TemporaryStorage:
         Returns:
             Stored value if found and not expired, None otherwise
         """
-        if self._use_mongodb and self._database:
+        if self._use_mongodb and self._database is not None:
             # Retrieve from MongoDB
             try:
                 data = self._database.temp_storage.find_one({"key": key})
@@ -386,7 +386,7 @@ class TemporaryStorage:
         Returns:
             True if key was deleted, False if not found
         """
-        if self._use_mongodb and self._database:
+        if self._use_mongodb and self._database is not None:
             # Delete from MongoDB
             try:
                 result = self._database.temp_storage.delete_one({"key": key})
