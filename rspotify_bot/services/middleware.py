@@ -353,8 +353,22 @@ class TemporaryStorage:
                     logger.debug(f"Key '{key}' not found in MongoDB")
                     return None
 
+                expires_at = data.get("expires_at")
+
+                if expires_at is None:
+                    logger.debug(
+                        "Key '%s' missing expires_at field in MongoDB document", key
+                    )
+                    self._database.temp_storage.delete_one({"key": key})
+                    return None
+
+                # Normalise MongoDB datetimes (which may be stored as naive UTC values)
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+
                 # Check expiry
-                if data["expires_at"] < datetime.now(timezone.utc):
+                now_utc = datetime.now(timezone.utc)
+                if expires_at < now_utc:
                     self._database.temp_storage.delete_one({"key": key})
                     logger.debug(f"Key '{key}' expired and removed from MongoDB")
                     return None
