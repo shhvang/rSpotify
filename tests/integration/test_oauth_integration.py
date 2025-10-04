@@ -7,7 +7,7 @@ These tests use mocked Spotify API responses but real database operations.
 import os
 import pytest
 import asyncio
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, Mock
 from datetime import datetime, timedelta
 
 # Skip tests if Spotify credentials not configured (e.g., in CI/CD)
@@ -36,17 +36,14 @@ class TestOAuthIntegration:
         await temp_storage.set(f"oauth_state_{test_state}", test_telegram_id, 300)
         
         # Mock Spotify API response
-        async def mock_json():
-            return {
-                "access_token": "mock_access_token",
-                "refresh_token": "mock_refresh_token",
-                "expires_in": 3600,
-                "token_type": "Bearer"
-            }
-        
         mock_response = AsyncMock()
         mock_response.status_code = 200
-        mock_response.json = mock_json
+        mock_response.json = Mock(return_value={
+            "access_token": "mock_access_token",
+            "refresh_token": "mock_refresh_token",
+            "expires_in": 3600,
+            "token_type": "Bearer"
+        })
         
         with patch('httpx.AsyncClient.post', return_value=mock_response):
             auth_service = SpotifyAuthService()
@@ -105,15 +102,13 @@ class TestOAuthErrorHandling:
         from rspotify_bot.services.auth import SpotifyAuthService
         
         # Mock error response
-        async def mock_json_error():
-            return {
-                "error": "invalid_grant",
-                "error_description": "Invalid authorization code"
-            }
-        
         mock_response = AsyncMock()
         mock_response.status_code = 400
-        mock_response.json = mock_json_error
+        mock_response.text = "Invalid authorization code"
+        mock_response.json = Mock(return_value={
+            "error": "invalid_grant",
+            "error_description": "Invalid authorization code"
+        })
         
         with patch('httpx.AsyncClient.post', return_value=mock_response):
             auth_service = SpotifyAuthService()
