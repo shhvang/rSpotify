@@ -5,12 +5,16 @@ Prevents injection attacks and ensures data integrity.
 
 import re
 import logging
-from typing import Any, Optional, Callable, TypeVar, cast
+from typing import Any, Optional, Callable, TypeVar, cast, Tuple
 from functools import wraps
+from better_profanity import profanity
 
 F = TypeVar("F", bound=Callable[..., Any])
 
 logger = logging.getLogger(__name__)
+
+# Initialize profanity filter
+profanity.load_censor_words()
 
 
 class ValidationError(Exception):
@@ -148,6 +152,83 @@ def sanitize_custom_name(name: str, min_length: int = 1, max_length: int = 50) -
 
     logger.debug(f"Sanitized custom name: {name}")
     return name
+
+
+def validate_custom_name(name: str) -> Tuple[bool, str]:
+    """
+    Validate custom display name for "Now Playing" images.
+    
+    Validation Rules:
+    - Maximum 12 characters
+    - Alphanumeric characters (A-Z, a-z, 0-9) and spaces allowed
+    - Unicode support for international characters (emojis excluded)
+    - Profanity filtering
+    - No empty or whitespace-only names
+    - Leading/trailing whitespace trimmed
+    
+    Args:
+        name: Custom name to validate
+    
+    Returns:
+        Tuple of (is_valid: bool, error_message: str)
+        If valid, error_message is empty string
+        If invalid, error_message contains specific error description
+    
+    Examples:
+        >>> validate_custom_name("John")
+        (True, "")
+        >>> validate_custom_name("VeryLongName123")
+        (False, "Name is too long! Please use 12 characters or fewer.")
+        >>> validate_custom_name("  ")
+        (False, "Name cannot be empty or only spaces.")
+    """
+    # Check type
+    if not isinstance(name, str):
+        return False, "Name must be text."
+    
+    # Trim whitespace
+    name = name.strip()
+    
+    # Check if empty
+    if not name:
+        return False, "Name cannot be empty or only spaces."
+    
+    # Check length (12 character limit for Story 1.5)
+    if len(name) > 12:
+        return False, "Name is too long! Please use 12 characters or fewer."
+    
+    # Check for emojis (they can break image rendering)
+    # Unicode emoji ranges
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map symbols
+        "\U0001F700-\U0001F77F"  # alchemical symbols
+        "\U0001F780-\U0001F7FF"  # Geometric Shapes Extended
+        "\U0001F800-\U0001F8FF"  # Supplemental Arrows-C
+        "\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
+        "\U0001FA00-\U0001FA6F"  # Chess Symbols
+        "\U0001FA70-\U0001FAFF"  # Symbols and Pictographs Extended-A
+        "\U00002702-\U000027B0"  # Dingbats
+        "\U000024C2-\U0001F251" 
+        "]+"
+    )
+    
+    if emoji_pattern.search(name):
+        return False, "Special characters and emojis are not allowed."
+    
+    # Allow alphanumeric and spaces, plus international characters
+    # But exclude most special symbols
+    if not re.match(r"^[A-Za-z0-9\s\u00C0-\u024F\u1E00-\u1EFF]+$", name):
+        return False, "Please use only letters, numbers, and spaces."
+    
+    # Check for profanity
+    if profanity.contains_profanity(name):
+        return False, "That name contains inappropriate language. Please choose another."
+    
+    # All validations passed
+    return True, ""
 
 
 def sanitize_query_parameter(param: str, param_name: str = "parameter") -> str:

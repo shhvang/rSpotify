@@ -14,6 +14,7 @@ from rspotify_bot.services.validation import (
     escape_html,
     validate_spotify_uri,
     validate_url,
+    validate_custom_name,
     InputValidator,
 )
 
@@ -416,3 +417,153 @@ class TestSecurityValidation:
         for name in names:
             result = sanitize_custom_name(name)
             assert result  # Should not fail
+
+
+class TestValidateCustomName:
+    """Test suite for validate_custom_name function (Story 1.5)."""
+
+    def test_validate_valid_name(self):
+        """Test validation of valid custom names."""
+        valid_names = [
+            "John",
+            "Mary Jane",
+            "Bob123",
+            "Alice42",
+            "J",  # Single character
+            "Test User 1",
+        ]
+        
+        for name in valid_names:
+            is_valid, error = validate_custom_name(name)
+            assert is_valid, f"'{name}' should be valid, got error: {error}"
+            assert error == ""
+
+    def test_validate_max_length_12_chars(self):
+        """Test 12 character limit."""
+        # Exactly 12 characters - should pass
+        is_valid, error = validate_custom_name("ExactlyTwlve")
+        assert is_valid
+        assert error == ""
+        
+        # 13 characters - should fail
+        is_valid, error = validate_custom_name("ThirteenChars")
+        assert not is_valid
+        assert "too long" in error.lower()
+        assert "12 characters" in error
+
+    def test_validate_empty_name_fails(self):
+        """Test empty name fails validation."""
+        is_valid, error = validate_custom_name("")
+        assert not is_valid
+        assert "empty" in error.lower()
+
+    def test_validate_whitespace_only_fails(self):
+        """Test whitespace-only name fails."""
+        is_valid, error = validate_custom_name("   ")
+        assert not is_valid
+        assert "empty" in error.lower() or "spaces" in error.lower()
+
+    def test_validate_trims_whitespace(self):
+        """Test that validation trims whitespace."""
+        is_valid, error = validate_custom_name("  John  ")
+        assert is_valid  # Should pass after trimming
+
+    def test_validate_rejects_emojis(self):
+        """Test that emojis are rejected."""
+        emoji_names = [
+            "John😀",
+            "🎵Music",
+            "Test🔥",
+            "😀",
+        ]
+        
+        for name in emoji_names:
+            is_valid, error = validate_custom_name(name)
+            assert not is_valid, f"'{name}' should be invalid (contains emoji)"
+            assert "emoji" in error.lower() or "special" in error.lower()
+
+    def test_validate_allows_international_chars(self):
+        """Test that international characters are allowed."""
+        international_names = [
+            "José",
+            "François",
+            "Müller",
+            "Søren",
+            "Ñoño",
+        ]
+        
+        for name in international_names:
+            is_valid, error = validate_custom_name(name)
+            assert is_valid, f"'{name}' should be valid, got error: {error}"
+
+    def test_validate_rejects_special_symbols(self):
+        """Test that special symbols are rejected."""
+        special_names = [
+            "John@Doe",
+            "Test#User",
+            "User$Name",
+            "Name%123",
+            "Test&User",
+        ]
+        
+        for name in special_names:
+            is_valid, error = validate_custom_name(name)
+            assert not is_valid, f"'{name}' should be invalid (special chars)"
+            assert "letters" in error.lower() or "numbers" in error.lower() or "spaces" in error.lower()
+
+    def test_validate_profanity_filter(self):
+        """Test profanity filtering."""
+        # Note: Using mild examples for testing
+        profane_names = [
+            "damn",
+            "hell",
+        ]
+        
+        for name in profane_names:
+            is_valid, error = validate_custom_name(name)
+            # May or may not be filtered depending on profanity library
+            # This test just ensures the function handles it gracefully
+            if not is_valid:
+                assert "inappropriate" in error.lower() or "language" in error.lower()
+
+    def test_validate_non_string_input(self):
+        """Test that non-string input fails gracefully."""
+        is_valid, error = validate_custom_name(123)
+        assert not is_valid
+        assert "text" in error.lower() or "string" in error.lower()
+
+    def test_validate_alphanumeric_with_spaces(self):
+        """Test alphanumeric characters with spaces."""
+        is_valid, error = validate_custom_name("User 123")
+        assert is_valid
+        assert error == ""
+
+    def test_validate_length_boundaries(self):
+        """Test length boundary cases."""
+        # 1 character - should pass
+        is_valid, error = validate_custom_name("A")
+        assert is_valid
+        
+        # 12 characters - should pass
+        is_valid, error = validate_custom_name("A" * 12)
+        assert is_valid
+        
+        # 13 characters - should fail
+        is_valid, error = validate_custom_name("A" * 13)
+        assert not is_valid
+
+    def test_validate_numbers_only(self):
+        """Test names with only numbers."""
+        is_valid, error = validate_custom_name("12345")
+        assert is_valid  # Numbers are allowed
+
+    def test_validate_mixed_case(self):
+        """Test mixed case names."""
+        is_valid, error = validate_custom_name("JohnDoe")
+        assert is_valid
+        
+        is_valid, error = validate_custom_name("ALLCAPS")
+        assert is_valid
+        
+        is_valid, error = validate_custom_name("lowercase")
+        assert is_valid

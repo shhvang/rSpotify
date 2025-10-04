@@ -54,6 +54,9 @@ async def test_handle_oauth_code_updates_tokens(monkeypatch: pytest.MonkeyPatch)
         message=message,
         effective_user=SimpleNamespace(id=123456789),
     )
+    
+    # Add context parameter
+    context = SimpleNamespace(user_data={})
 
     auth_service = SimpleNamespace(
         exchange_code_for_tokens=AsyncMock(
@@ -70,7 +73,8 @@ async def test_handle_oauth_code_updates_tokens(monkeypatch: pytest.MonkeyPatch)
     )
 
     repo_instance = SimpleNamespace(
-        update_spotify_tokens=AsyncMock(return_value=True)
+        update_spotify_tokens=AsyncMock(return_value=True),
+        get_user=AsyncMock(return_value={"custom_name": "TestUser"})  # Add get_user mock
     )
 
     def repo_factory(database):
@@ -82,7 +86,7 @@ async def test_handle_oauth_code_updates_tokens(monkeypatch: pytest.MonkeyPatch)
         repo_factory,
     )
 
-    await bot._handle_oauth_code(update, str(object_id), update.effective_user.id)
+    await bot._handle_oauth_code(update, context, str(object_id), update.effective_user.id)
 
     auth_service.exchange_code_for_tokens.assert_awaited_once_with(auth_code)
     repo_instance.update_spotify_tokens.assert_awaited_once_with(

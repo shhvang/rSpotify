@@ -398,6 +398,246 @@ async def handle_export_data(
         )
 
 
+async def handle_me(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handle /me command to display user profile information.
+    
+    Shows:
+    - Custom display name
+    - Spotify connection status
+    - Spotify account type (Free/Premium)
+    - Member since date
+    
+    Args:
+        update: Telegram update object
+        context: Telegram context object
+    """
+    user = update.effective_user
+    
+    if not user:
+        return
+    
+    telegram_id = user.id
+    logger.info(f"User {telegram_id} requested profile via /me")
+    
+    if not update.message:
+        return
+    
+    try:
+        db_service = cast(DatabaseService, context.bot_data.get("db_service"))
+        
+        if db_service is None or db_service.database is None:
+            await update.message.reply_html(
+                "<b>❌ Error</b>\n\nDatabase service unavailable."
+            )
+            return
+        
+        # Get user data
+        user_repo = UserRepository(db_service.database)
+        user_data = await user_repo.get_user(telegram_id)
+        
+        if not user_data:
+            await update.message.reply_html(
+                "<b>ℹ️ Profile Not Found</b>\n\n"
+                "Use /start to create your profile."
+            )
+            return
+        
+        # Get custom name
+        custom_name = user_data.get("custom_name", "Not set")
+        
+        # Check Spotify connection
+        spotify_data = user_data.get("spotify") or {}
+        spotify_connected = bool(spotify_data.get("access_token"))
+        spotify_status = "✅ Connected" if spotify_connected else "❌ Disconnected"
+        
+        # Get Spotify account type if connected
+        account_type = "Unknown"
+        if spotify_connected:
+            try:
+                auth_service = SpotifyAuthService()
+                profile = await auth_service.get_user_profile(
+                    spotify_data["access_token"]
+                )
+                
+                if profile:
+                    product = profile.get("product", "free")
+                    account_type = "Premium" if product == "premium" else "Free"
+            except Exception as e:
+                logger.warning(f"Could not fetch Spotify account type: {e}")
+                account_type = "Unknown"
+        
+        # Format created_at date
+        created_at = user_data.get("created_at", "Unknown")
+        if hasattr(created_at, "strftime"):
+            created_at = created_at.strftime("%Y-%m-%d")
+        
+        # Build profile message
+        profile_message = (
+            f"<b>👤 Your Profile</b>\n\n"
+            f"<b>Display Name:</b> {escape_html(str(custom_name))}\n"
+            f"<b>Spotify Status:</b> {spotify_status}\n"
+        )
+        
+        if spotify_connected:
+            profile_message += f"<b>Account Type:</b> {account_type}\n"
+        
+        profile_message += (
+            f"<b>Member Since:</b> {created_at}\n\n"
+        )
+        
+        if not spotify_connected:
+            profile_message += "<i>Connect Spotify with /login to unlock all features!</i>"
+        else:
+            profile_message += "<i>Use /rename to change your display name.</i>"
+        
+        await update.message.reply_html(profile_message)
+    
+    except Exception as e:
+        logger.error(f"Error in /me command for user {telegram_id}: {e}")
+        await update.message.reply_html(
+            "<b>❌ Error</b>\n\nFailed to retrieve profile. Please try again later."
+        )
+
+
+async def handle_rename(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handle /rename command to change custom display name.
+    
+    Validates new name and updates database with rate limiting.
+    
+    Args:
+        update: Telegram update object
+        context: Telegram context object
+    """
+    user = update.effective_user
+    
+    if not user:
+        return
+    
+    telegram_id = user.id
+    logger.info(f"User {telegram_id} initiated /rename")
+    
+    if not update.message:
+        return
+    
+    # Check rate limiting (3 renames per hour)
+    from datetime import datetime, timedelta, timezone
+    
+    if context.user_data is None:
+        context.user_data = {}
+    
+    rename_history = context.user_data.get("rename_history", [])
+    current_time = datetime.now(timezone.utc)
+    
+    # Filter out old entries (older than 1 hour)
+    recent_renames = [
+        timestamp for timestamp in rename_history
+        if current_time - timestamp < timedelta(hours=1)
+    ]
+    
+    if len(recent_renames) >= 3:
+        next_allowed = recent_renames[0] + timedelta(hours=1)
+        minutes_left = int((next_allowed - current_time).total_seconds() / 60)
+        
+        await update.message.reply_html(
+            f"<b>⏰ Rate Limit Exceeded</b>\n\n"
+            f"You've renamed too many times. Please wait <b>{minutes_left} minutes</b> before trying again.\n\n"
+            f"<i>Limit: 3 renames per hour</i>"
+        )
+        return
+    
+    # Prompt for new name
+    await update.message.reply_html(
+        "<b>✏️ Change Display Name</b>\n\n"
+        "Please enter your new custom display name (maximum 12 characters):\n\n"
+        "<i>Type /cancel to abort.</i>"
+    )
+    
+    # Set conversation state
+    context.user_data["awaiting_rename"] = True
+    context.user_data["rename_history"] = recent_renames
+
+
+async def handle_rename_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Handle name input during /rename flow.
+    
+    Args:
+        update: Telegram update object
+        context: Telegram context object
+    """
+    user = update.effective_user
+    
+    if not user or not update.message:
+        return
+    
+    # Check if in rename flow
+    if not context.user_data or not context.user_data.get("awaiting_rename"):
+        return
+    
+    from ..services.validation import validate_custom_name
+    from datetime import datetime, timezone
+    
+    name_input = update.message.text.strip()
+    telegram_id = user.id
+    
+    # Check for cancel
+    if name_input.lower() == "/cancel":
+        context.user_data["awaiting_rename"] = False
+        await update.message.reply_html(
+            "<b>🚫 Rename Cancelled</b>\n\n"
+            "Your display name has not been changed."
+        )
+        return
+    
+    # Validate name
+    is_valid, error_message = validate_custom_name(name_input)
+    
+    if not is_valid:
+        await update.message.reply_html(
+            f"❌ <b>Invalid Name</b>\n\n"
+            f"{error_message}\n\n"
+            f"Please try again or type <b>/cancel</b> to abort."
+        )
+        return
+    
+    # Update name in database
+    try:
+        db_service = cast(DatabaseService, context.bot_data.get("db_service"))
+        
+        if db_service is None or db_service.database is None:
+            await update.message.reply_html(
+                "<b>❌ Error</b>\n\nDatabase service unavailable."
+            )
+            return
+        
+        user_repo = UserRepository(db_service.database)
+        await user_repo.update_user(telegram_id, {"custom_name": name_input})
+        
+        # Update rename history
+        rename_history = context.user_data.get("rename_history", [])
+        rename_history.append(datetime.now(timezone.utc))
+        context.user_data["rename_history"] = rename_history
+        
+        # Clear state
+        context.user_data["awaiting_rename"] = False
+        
+        logger.info(f"User {telegram_id} renamed to '{name_input}'")
+        
+        await update.message.reply_html(
+            f"✅ <b>Name Updated!</b>\n\n"
+            f"Your display name has been changed to: <b>{escape_html(name_input)}</b>\n\n"
+            f"<i>Use /me to view your profile.</i>"
+        )
+    
+    except Exception as e:
+        logger.error(f"Error updating name for user {telegram_id}: {e}")
+        await update.message.reply_html(
+            "<b>❌ Error</b>\n\nFailed to update name. Please try again later."
+        )
+
+
 def register_user_command_handlers(application: Any) -> None:
     """
     Register all user command handlers.
@@ -411,6 +651,8 @@ def register_user_command_handlers(application: Any) -> None:
     application.add_handler(CommandHandler("login", handle_login))
     application.add_handler(CommandHandler("logout", handle_logout))
     application.add_handler(CommandHandler("exportdata", handle_export_data))
+    application.add_handler(CommandHandler("me", handle_me))
+    application.add_handler(CommandHandler("rename", handle_rename))
 
     # Register callback handlers
     application.add_handler(

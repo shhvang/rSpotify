@@ -144,6 +144,14 @@ class RSpotifyBot:
         self.application.add_handler(
             CommandHandler("help", protect("help")(self.help_command))
         )
+        
+        # Message handler for custom name input during onboarding
+        self.application.add_handler(
+            MessageHandler(
+                filters.TEXT & ~filters.COMMAND,
+                protect("custom_name_input")(self.handle_custom_name_input)
+            )
+        )
 
         # Message handlers for unknown commands
         self.application.add_handler(
@@ -255,7 +263,7 @@ class RSpotifyBot:
             code_id = message_text.split()[1]
             
             # Handle OAuth code retrieval and token exchange
-            await self._handle_oauth_code(update, code_id, user.id)
+            await self._handle_oauth_code(update, context, code_id, user.id)
             return
 
         # Create or update user record
@@ -278,13 +286,14 @@ class RSpotifyBot:
         await update.message.reply_html(welcome_message)
 
     async def _handle_oauth_code(
-        self, update: Update, code_id: str, telegram_id: int
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE, code_id: str, telegram_id: int
     ) -> None:
         """
         Handle OAuth code retrieval and token exchange (Spotipie-style flow).
         
         Args:
             update: Telegram update object
+            context: Bot context
             code_id: MongoDB ObjectId of the stored auth code
             telegram_id: Telegram user ID
         """
@@ -371,14 +380,33 @@ class RSpotifyBot:
             )
 
             if success:
-                await status_message.edit_text(
-                    "✅ <b>Spotify account connected successfully!</b>\n\n"
-                    "You can now use all Spotify features:\n"
-                    "• <code>/nowplaying</code> - Share what you're listening to\n"
-                    "• <code>/logout</code> - Disconnect your Spotify account\n\n"
-                    "<i>Enjoy the music! 🎶</i>",
-                    parse_mode="HTML"
-                )
+                # Check if user needs to set up custom name
+                user = await user_repo.get_user(telegram_id)
+                if user and not user.get("custom_name"):
+                    # Prompt for custom name setup
+                    await status_message.edit_text(
+                        "✅ <b>Spotify account connected successfully!</b>\n\n"
+                        "🎵 <b>Let's personalize your experience!</b>\n\n"
+                        "Please set a custom display name for your 'Now Playing' images "
+                        "(maximum 12 characters).\n\n"
+                        "<i>You can use /rename anytime to change it later.</i>",
+                        parse_mode="HTML"
+                    )
+                    
+                    # Set conversation state for name input
+                    if context.user_data is not None:
+                        context.user_data["awaiting_custom_name"] = True
+                else:
+                    await status_message.edit_text(
+                        "✅ <b>Spotify account connected successfully!</b>\n\n"
+                        "You can now use all Spotify features:\n"
+                        "• <code>/nowplaying</code> - Share what you're listening to\n"
+                        "• <code>/me</code> - View your profile\n"
+                        "• <code>/rename</code> - Change your display name\n"
+                        "• <code>/logout</code> - Disconnect your Spotify account\n\n"
+                        "<i>Enjoy the music! 🎶</i>",
+                        parse_mode="HTML"
+                    )
             else:
                 await status_message.edit_text(
                     "❌ Failed to store tokens. Please try /login again."
@@ -396,6 +424,139 @@ class RSpotifyBot:
                 f"Please try /login again.",
                 parse_mode="HTML"
             )
+
+    async def handle_custom_name_input(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> None:
+        """
+        Handle custom name input during post-authentication setup or rename flow.
+        
+        Args:
+            update: Telegram update object
+            context: Bot context
+        """
+        from .handlers.user_commands import handle_rename_input
+        
+        user = update.effective_user
+        
+        if not user or not update.message:
+            return
+        
+        # Check if user is in rename flow (higher priority)
+        if context.user_data and context.user_data.get("awaiting_rename"):
+            await handle_rename_input(update, context)
+            return
+        
+        # Check if user is in custom name setup flow
+        if not context.user_data or not context.user_data.get("awaiting_custom_name"):
+            # Not in setup flow, ignore
+            return
+        
+        from .services.validation import validate_custom_name
+        from .services.repository import UserRepository
+        from .services.auth import SpotifyAuthService
+        
+        name_input = update.message.text.strip()
+        
+        # Allow user to skip with specific keywords
+        if name_input.lower() in ["skip", "default", "later"]:
+            # Apply default name fallback
+            logger.info(f"User {user.id} skipped custom name setup")
+            
+            # Get default name
+            default_name = await self._get_default_name(user)
+            
+            # Save default name
+            user_repo = UserRepository(self.db_service.database)
+            await user_repo.update_user(user.id, {"custom_name": default_name})
+            
+            # Clear state
+            context.user_data["awaiting_custom_name"] = False
+            
+            await update.message.reply_html(
+                f"✅ <b>Setup Complete!</b>\n\n"
+                f"Your display name has been set to: <b>{default_name}</b>\n\n"
+                f"You can change it anytime with <code>/rename</code>.\n\n"
+                f"<i>Use /help to see available commands.</i>"
+            )
+            return
+        
+        # Validate custom name
+        is_valid, error_message = validate_custom_name(name_input)
+        
+        if not is_valid:
+            # Send error and prompt again
+            await update.message.reply_html(
+                f"❌ <b>Invalid Name</b>\n\n"
+                f"{error_message}\n\n"
+                f"Please try again or type <b>skip</b> to use a default name."
+            )
+            return
+        
+        # Save validated name
+        logger.info(f"Setting custom name '{name_input}' for user {user.id}")
+        user_repo = UserRepository(self.db_service.database)
+        await user_repo.update_user(user.id, {"custom_name": name_input})
+        
+        # Clear state
+        context.user_data["awaiting_custom_name"] = False
+        
+        # Send confirmation
+        await update.message.reply_html(
+            f"✅ <b>Perfect!</b>\n\n"
+            f"Your display name has been set to: <b>{name_input}</b>\n\n"
+            f"You can now use:\n"
+            f"• <code>/me</code> - View your profile\n"
+            f"• <code>/rename</code> - Change your display name\n"
+            f"• <code>/nowplaying</code> - Share what you're listening to\n\n"
+            f"<i>Enjoy the music! 🎶</i>"
+        )
+
+    async def _get_default_name(self, telegram_user) -> str:
+        """
+        Get default name fallback for user.
+        
+        Priority:
+        1. Spotify display name (if available)
+        2. Telegram username
+        3. Telegram first name
+        4. "User" as last resort
+        
+        Args:
+            telegram_user: Telegram user object
+        
+        Returns:
+            Default name string (max 12 characters)
+        """
+        from .services.auth import SpotifyAuthService
+        from .services.repository import UserRepository
+        
+        # Try to get Spotify display name
+        try:
+            user_repo = UserRepository(self.db_service.database)
+            user_data = await user_repo.get_user(telegram_user.id)
+            
+            if user_data and user_data.get("spotify", {}).get("access_token"):
+                auth_service = SpotifyAuthService()
+                profile = await auth_service.get_user_profile(
+                    user_data["spotify"]["access_token"]
+                )
+                
+                if profile and profile.get("display_name"):
+                    return profile["display_name"][:12]
+        except Exception as e:
+            logger.warning(f"Could not fetch Spotify display name: {e}")
+        
+        # Try Telegram username
+        if telegram_user.username:
+            return telegram_user.username[:12]
+        
+        # Try Telegram first name
+        if telegram_user.first_name:
+            return telegram_user.first_name[:12]
+        
+        # Last resort
+        return "User"
 
     async def help_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE

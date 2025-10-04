@@ -341,3 +341,57 @@ class SpotifyAuthService:
         # This is a placeholder for future implementation if Spotify adds official revocation
         logger.info("Token revocation requested (Spotify doesn't officially support revocation)")
         return True
+
+    async def get_user_profile(self, access_token: str) -> Optional[Dict[str, Any]]:
+        """
+        Fetch Spotify user profile information.
+        
+        Args:
+            access_token: Valid Spotify access token
+        
+        Returns:
+            Dict with user profile data (display_name, product, country, email, id)
+            None if request fails
+        
+        Raises:
+            Exception: If API request fails
+        """
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(
+                    "https://api.spotify.com/v1/me",
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "Content-Type": "application/json",
+                    },
+                )
+                
+                if response.status_code == 401:
+                    # Token expired or invalid
+                    logger.warning("Access token expired or invalid when fetching profile")
+                    raise Exception("Access token expired or invalid")
+                
+                if response.status_code != 200:
+                    error_msg = response.text
+                    logger.error(f"Failed to fetch Spotify profile: {response.status_code} - {error_msg}")
+                    raise Exception(f"Failed to fetch Spotify profile: {error_msg}")
+                
+                try:
+                    profile_data = response.json()
+                except ValueError as json_error:
+                    logger.error(f"Invalid JSON in Spotify profile response: {json_error}")
+                    raise Exception("Invalid response from Spotify profile endpoint")
+                
+                logger.info(f"Successfully fetched Spotify profile for user {profile_data.get('id', 'unknown')}")
+                
+                return {
+                    "display_name": profile_data.get("display_name"),
+                    "email": profile_data.get("email"),
+                    "product": profile_data.get("product", "free"),  # free, premium, open
+                    "country": profile_data.get("country"),
+                    "id": profile_data.get("id"),
+                }
+        
+        except httpx.HTTPError as e:
+            logger.error(f"HTTP error fetching Spotify profile: {e}")
+            raise Exception(f"Network error fetching Spotify profile: {e}")
