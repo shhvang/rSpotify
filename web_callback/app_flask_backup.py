@@ -110,8 +110,9 @@ def spotify_callback():
 
 async def get_current_time():
     '''Helper to get current time asynchronously.'''
-    from datetime import datetime
-    return datetime.utcnow()
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc)
 
 
 if __name__ == '__main__':

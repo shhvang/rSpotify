@@ -57,9 +57,6 @@ pythonpath = ["."]
 addopts = [
     "--strict-markers",
     "--strict-config",
-    "--cov=rspotify_bot",
-    "--cov-report=term-missing:skip-covered",
-    "--cov-report=html:htmlcov",
 ]
 markers = [
     "asyncio: mark test as requiring the asyncio test harness",

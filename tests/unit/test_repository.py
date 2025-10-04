@@ -4,7 +4,7 @@ Tests data access operations with mocked database.
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, MagicMock, patch, AsyncMock
 from cryptography.fernet import Fernet
 
@@ -69,7 +69,7 @@ class TestUserRepository:
         tokens = {
             "access_token": "test_access",
             "refresh_token": "test_refresh",
-            "expires_at": datetime.utcnow(),
+            "expires_at": datetime.now(timezone.utc),
         }
 
         mock_database.users.insert_one = Mock()
@@ -120,7 +120,7 @@ class TestUserRepository:
                 "access_token": encrypted_access,
                 "refresh_token": encrypted_refresh,
             },
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(timezone.utc),
         }
 
         mock_database.users.find_one = Mock(return_value=mock_user)
@@ -273,7 +273,10 @@ class TestUserRepository:
         mock_database.users.update_one = Mock(return_value=mock_result)
 
         result = await user_repository.update_spotify_tokens(
-            telegram_id, "new_access", "new_refresh", datetime.utcnow()
+            telegram_id,
+            "new_access",
+            "new_refresh",
+            datetime.now(timezone.utc),
         )
 
         assert result is True

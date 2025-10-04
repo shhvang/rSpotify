@@ -16,6 +16,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+from pymongo.errors import PyMongoError
+
 # Configure logging FIRST before any other imports
 logging.basicConfig(
     level=logging.DEBUG,
@@ -120,19 +122,12 @@ async def init_services():
 
         # Initialize temporary storage with MongoDB for cross-process sharing
         temp_storage = get_temporary_storage()
-        temp_storage._database = db_service.database
-        temp_storage._use_mongodb = True
-        logger.info('Temporary storage initialized with MongoDB backend')
-        
-        # Create TTL index on temp_storage collection (Motor is async)
-        try:
-            await db_service.database.temp_storage.create_index(
-                "expires_at",
-                expireAfterSeconds=0
-            )
-            logger.info('Created TTL index on temp_storage collection')
-        except Exception as e:
-            logger.warning(f'Failed to create TTL index (may already exist): {e}')
+        temp_storage.configure_backend(db_service.database)
+
+        if temp_storage.uses_mongodb:
+            logger.info('Temporary storage initialized with MongoDB backend')
+        else:
+            logger.warning('MongoDB unavailable - falling back to in-memory temporary storage')
         
         await temp_storage.start_cleanup_task()
         logger.info('Temporary storage cleanup task started')
@@ -285,6 +280,16 @@ async def spotify_callback(request: web.Request) -> web.Response:
         await temp_storage.delete(state_key)
         logger.info(f'State validated for telegram_id: {telegram_id}')
 
+        if not db_service or not db_service.database:
+            logger.error('Database service is not available for storing auth codes')
+            return web.Response(
+                text='<html><body><h1>Service Unavailable</h1>'
+                     '<p>Unable to store your authorization code.</p>'
+                     '<p>Please return to Telegram and try /login again.</p></body></html>',
+                content_type='text/html',
+                status=503
+            )
+
         # Store auth code in MongoDB with TTL (10 minutes)
         code_doc = {
             'telegram_id': telegram_id,
@@ -295,8 +300,18 @@ async def spotify_callback(request: web.Request) -> web.Response:
             'expires_at': datetime.now(timezone.utc) + timedelta(minutes=10)
         }
 
-        # Motor is async, no need for thread pool
-        result = await db_service.database.oauth_codes.insert_one(code_doc)
+        try:
+            result = await db_service.database.oauth_codes.insert_one(code_doc)
+        except PyMongoError as e:
+            logger.error('Failed to store auth code in database: %s', e, exc_info=True)
+            return web.Response(
+                text='<html><body><h1>Database Error</h1>'
+                     '<p>Could not save your authorization code.</p>'
+                     '<p>Please return to Telegram and try /login again.</p></body></html>',
+                content_type='text/html',
+                status=500
+            )
+
         code_id = str(result.inserted_id)
 
         logger.info(f'Stored auth code with ID: {code_id} for telegram_id: {telegram_id}')
@@ -314,15 +329,16 @@ async def spotify_callback(request: web.Request) -> web.Response:
         telegram_url = f'https://t.me/{bot_username}?start={code_id}'
         logger.info(f'Redirecting to Telegram: {telegram_url}')
 
-        # Return redirect with user-friendly message
-        return web.Response(
-            status=302,
-            headers={'Location': telegram_url},
-            text=f'<html><body><h1>Authorization Successful!</h1>'
-                 f'<p>Redirecting you to Telegram...</p>'
-                 f'<p>If you are not redirected automatically, <a href="{telegram_url}">click here</a>.</p></body></html>',
-            content_type='text/html'
+        # Issue redirect back to Telegram with deep link payload
+        response = web.HTTPFound(location=telegram_url)
+        response.text = (
+            f'<html><body><h1>Authorization Successful!</h1>'
+            f'<p>Redirecting you to Telegram...</p>'
+            f'<p>If you are not redirected automatically, '
+            f'<a href="{telegram_url}">tap here</a>.</p></body></html>'
         )
+        response.content_type = 'text/html'
+        return response
 
     except Exception as e:
         logger.error(f'Error handling Spotify callback: {e}', exc_info=True)

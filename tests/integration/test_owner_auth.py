@@ -4,13 +4,11 @@ Tests real database interactions for owner-only features.
 """
 
 import pytest
-import pytest_asyncio
 from unittest.mock import patch
 from datetime import datetime
 
 from rspotify_bot.services.database import DatabaseService
 from rspotify_bot.services.auth import is_owner, get_owner_id
-
 
 class TestOwnerAuthIntegration:
     """Integration tests for owner authorization with configuration."""
@@ -41,8 +39,8 @@ class TestOwnerAuthIntegration:
 class TestBlacklistIntegration:
     """Integration tests for blacklist functionality with database."""
 
-    @pytest_asyncio.fixture
-    async def db_service(self):
+    @pytest.fixture
+    def db_service(self):
         """Create database service for testing."""
         db = DatabaseService()
         # Note: In real integration tests, this would connect to a test database
@@ -86,8 +84,8 @@ class TestBlacklistIntegration:
 class TestRateLimitIntegration:
     """Integration tests for rate limiting with database."""
 
-    @pytest_asyncio.fixture
-    async def db_service(self):
+    @pytest.fixture
+    def db_service(self):
         """Create database service for testing."""
         return DatabaseService()
 
@@ -121,8 +119,8 @@ class TestRateLimitIntegration:
 class TestStatisticsIntegration:
     """Integration tests for statistics collection."""
 
-    @pytest_asyncio.fixture
-    async def db_service(self):
+    @pytest.fixture
+    def db_service(self):
         """Create database service for testing."""
         return DatabaseService()
 
@@ -162,8 +160,8 @@ class TestStatisticsIntegration:
 class TestOwnerCommandsEndToEnd:
     """End-to-end integration tests for owner commands."""
 
-    @pytest_asyncio.fixture
-    async def db_service(self):
+    @pytest.fixture
+    def db_service(self):
         """Create database service for testing."""
         return DatabaseService()
 
@@ -218,8 +216,8 @@ class TestDatabaseConnectionHandling:
 class TestErrorScenarios:
     """Test error handling in integration scenarios."""
 
-    @pytest_asyncio.fixture
-    async def db_service(self):
+    @pytest.fixture
+    def db_service(self):
         """Create database service."""
         return DatabaseService()
 

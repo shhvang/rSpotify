@@ -5,7 +5,7 @@ Handles MongoDB Atlas connection and operations.
 
 import logging
 from typing import Optional, Dict, Any, cast
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pymongo import MongoClient
 from pymongo.database import Database
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
@@ -38,9 +38,9 @@ class DatabaseService:
             # For basic implementation, we'll simulate connection
             # In production, replace with actual MongoDB connection
             if not config.MONGODB_URI or config.MONGODB_URI == "":
-                logger.warning("MongoDB URI not configured, using mock connection")
-                self._connection_validated = True
-                return True
+                logger.error("MongoDB URI not configured; database features are unavailable")
+                self._connection_validated = False
+                return False
 
             # Create client with connection pooling
             self.client = MongoClient(
@@ -87,7 +87,7 @@ class DatabaseService:
             bool: True if connection is healthy, False otherwise.
         """
         if not self._connection_validated:
-            return True  # Mock connection for basic implementation
+            return False
 
         if not self.client:
             return False
@@ -207,8 +207,8 @@ class DatabaseService:
                 "telegram_id": telegram_id,
                 "custom_name": custom_name,
                 "spotify_tokens": None,  # Will be encrypted when added
-                "created_at": datetime.utcnow(),
-                "last_active": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
+                "last_active": datetime.now(timezone.utc),
                 "preferences": {
                     "notifications": True,
                     "public_playlists": False,
@@ -239,7 +239,7 @@ class DatabaseService:
         try:
             result = self.database.users.update_one(
                 {"telegram_id": telegram_id},
-                {"$set": {"last_active": datetime.utcnow()}},
+                {"$set": {"last_active": datetime.now(timezone.utc)}},
             )
             return result.modified_count > 0
 
@@ -291,7 +291,7 @@ class DatabaseService:
             cache_doc = {
                 "query_string": query,
                 "spotify_track_id": spotify_track_id,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
             }
 
             # Upsert to handle duplicate queries
@@ -332,7 +332,7 @@ class DatabaseService:
             log_doc = {
                 "telegram_id": telegram_id,
                 "command": command,
-                "timestamp": datetime.utcnow(),
+                "timestamp": datetime.now(timezone.utc),
             }
 
             if extra_data:
@@ -361,7 +361,7 @@ class DatabaseService:
             return {}
 
         try:
-            since_date = datetime.utcnow() - timedelta(days=days)
+            since_date = datetime.now(timezone.utc) - timedelta(days=days)
 
             pipeline = [
                 {
@@ -410,13 +410,13 @@ class DatabaseService:
             # but we can provide manual cleanup for monitoring
 
             # Count expired cache entries (older than 30 days)
-            cache_cutoff = datetime.utcnow() - timedelta(days=30)
+            cache_cutoff = datetime.now(timezone.utc) - timedelta(days=30)
             expired_cache = self.database.search_cache.count_documents(
                 {"created_at": {"$lt": cache_cutoff}}
             )
 
             # Count expired logs (older than 90 days)
-            logs_cutoff = datetime.utcnow() - timedelta(days=90)
+            logs_cutoff = datetime.now(timezone.utc) - timedelta(days=90)
             expired_logs = self.database.usage_logs.count_documents(
                 {"timestamp": {"$lt": logs_cutoff}}
             )
@@ -470,7 +470,7 @@ class DatabaseService:
             blacklist_doc = {
                 "telegram_id": telegram_id,
                 "reason": reason,
-                "blocked_at": datetime.utcnow(),
+                "blocked_at": datetime.now(timezone.utc),
                 "blocked_by": blocked_by,
             }
 
@@ -574,7 +574,7 @@ class DatabaseService:
             return {}
 
         try:
-            since_date = datetime.utcnow() - timedelta(days=days)
+            since_date = datetime.now(timezone.utc) - timedelta(days=days)
 
             # Total users
             total_users = self.database.users.count_documents({})
@@ -656,7 +656,7 @@ class DatabaseService:
                     "most_popular": command_stats[0]["_id"] if command_stats else None,
                 },
                 "daily_usage": daily_stats,
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -684,7 +684,7 @@ class DatabaseService:
             return True  # Allow if database unavailable
 
         try:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             window_start = now - timedelta(minutes=window_minutes)
 
             # Count recent calls
@@ -720,7 +720,7 @@ class DatabaseService:
             violation_doc = {
                 "user_id": user_id,
                 "command": command,
-                "timestamp": datetime.utcnow(),
+                "timestamp": datetime.now(timezone.utc),
                 "type": "rate_limit_exceeded",
             }
 
@@ -742,6 +742,6 @@ class DatabaseService:
             True if connected and healthy, False otherwise
         """
         if not self._connection_validated:
-            return True  # Mock connection
+            return False
 
         return await self.health_check()
