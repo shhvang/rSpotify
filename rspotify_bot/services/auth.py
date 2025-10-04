@@ -10,6 +10,7 @@ from typing import Callable, Any, Dict, Optional
 from datetime import datetime, timedelta, timezone
 from telegram import Update
 from telegram.ext import ContextTypes
+from urllib.parse import urlencode, quote
 
 from ..config import Config
 
@@ -147,8 +148,8 @@ class SpotifyAuthService:
             "scope": scope,
         }
 
-        # Build query string
-        query_params = "&".join([f"{k}={v}" for k, v in params.items()])
+        # Build query string with proper URL encoding
+        query_params = urlencode(params, quote_via=quote)
         auth_url = f"{self.SPOTIFY_AUTHORIZE_URL}?{query_params}"
 
         logger.debug(f"Generated authorization URL with state: {state}")

@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, Mock, patch, MagicMock
 from datetime import datetime, timedelta
 from telegram import Update, User, Message, Chat
 from telegram.ext import ContextTypes
+from urllib.parse import urlparse, parse_qs
 
 from rspotify_bot.services.auth import SpotifyAuthService
 from rspotify_bot.services.middleware import (
@@ -65,15 +66,22 @@ class TestSpotifyAuthService:
         state = "test_state_123"
         auth_url = service.get_authorization_url(state)
 
-        # Verify URL components
-        assert "https://accounts.spotify.com/authorize" in auth_url
-        assert "client_id=test_client_id" in auth_url
-        assert "response_type=code" in auth_url
-        assert "redirect_uri=https://test.com/callback" in auth_url
-        assert "state=test_state_123" in auth_url
-        assert "scope=" in auth_url
-        assert "user-read-currently-playing" in auth_url
-        assert "user-modify-playback-state" in auth_url
+        parsed_url = urlparse(auth_url)
+        assert parsed_url.scheme == "https"
+        assert parsed_url.netloc == "accounts.spotify.com"
+        assert parsed_url.path == "/authorize"
+
+        query_params = parse_qs(parsed_url.query)
+
+        assert query_params["client_id"] == ["test_client_id"]
+        assert query_params["response_type"] == ["code"]
+        assert query_params["redirect_uri"] == ["https://test.com/callback"]
+        assert query_params["state"] == [state]
+        assert "scope" in query_params
+
+        scopes = query_params["scope"][0].split(" ")
+        assert "user-read-currently-playing" in scopes
+        assert "user-modify-playback-state" in scopes
 
     @pytest.mark.asyncio
     @patch("rspotify_bot.services.auth.Config.SPOTIFY_CLIENT_ID", "test_client_id")
