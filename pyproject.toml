@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rspotify-bot"
+version = "1.2.0"
+description = "A Telegram bot for Spotify track sharing and recommendations"
+authors = [{name = "rSpotify Bot Team", email = "team@rspotify-bot.com"}]
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+keywords = ["telegram", "bot", "spotify", "music"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+]
+
+dependencies = [
+    "python-telegram-bot==21.0.1",
+    "httpx>=0.27.0",
+    "pymongo==4.6.1",
+    "Flask==3.0",
+    "Pillow==10.1.0",
+    "python-dotenv==1.0.0",
+    "cryptography==41.0.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==7.4",
+    "pytest-asyncio==0.21.1",
+    "pytest-mock==3.12.0",
+    "pytest-cov==4.1.0",
+]
+
+test = [
+    "pytest==7.4",
+    "pytest-asyncio==0.21.1",
+    "pytest-mock==3.12.0",
+    "pytest-cov==4.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/rspotify-bot/rspotify-bot"
+Repository = "https://github.com/rspotify-bot/rspotify-bot.git"
+Issues = "https://github.com/rspotify-bot/rspotify-bot/issues"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+pythonpath = ["."]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+]
+markers = [
+    "asyncio: mark test as requiring the asyncio test harness",
+]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rspotify_bot*"]
+exclude = ["tests*", "ansible*", "web_callback*", "docs*", "htmlcov*", "logs*"]
