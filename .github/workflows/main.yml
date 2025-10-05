@@ -1,4 +1,10 @@
-name: CI/CD Pipeline
+name: Deploy to Production
+
+# Production Deployment Workflow
+# Triggers: Push to main branch (after merging from develop)
+# Environment: Production bot (rspotify)
+# Process Manager: Supervisor
+# Domain: rspotify.shhvang.space
 
 on:
   push:
