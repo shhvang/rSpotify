@@ -2,29 +2,12 @@
 set -e
 
 # ============================================
-# PRODUCTION DENCRYPTION_KEY=${ENCRYPTION_KEY}
-MONGODB_URI=${MONGODB_URI}
-MONGODB_DATABASE=${DB_NAME}
-ENVIRONMENT=${ENVIRONMENT}
-DEBUG=false
-LOG_LEVEL=INFO
-PASTEBIN_API_KEY=${PASTEBIN_API_KEY}
-PASTEBIN_USER_KEY=${PASTEBIN_USER_KEY}
-DOMAIN=${DOMAIN}
-BOT_USERNAME=${BOT_USERNAME}
-CERTBOT_EMAIL=${CERTBOT_EMAIL}
-SPOTIFY_REDIRECT_URI=https://${DOMAIN}/spotify/callback
-OAUTH_HTTP_PORT=${OAUTH_HTTP_PORT}
-OAUTH_HTTPS_PORT=${OAUTH_HTTPS_PORT}
-EOF
-
-chown rspotify:rspotify ${APP_DIR}/repo/.env
-chmod 600 ${APP_DIR}/repo/.envURATION
+# PRODUCTION CONFIGURATION
 # ============================================
 ENVIRONMENT="production"
 BRANCH="main"
 APP_DIR="/opt/rspotify-bot"
-DB_NAME="rspotify_bot_production"
+DB_NAME="rspotify"
 SUPERVISOR_BOT_NAME="rspotify-bot"
 SUPERVISOR_OAUTH_NAME="rspotify-oauth"
 DOMAIN="rspotify.shhvang.space"
@@ -37,6 +20,31 @@ echo "Environment: ${ENVIRONMENT}"
 echo "Branch: ${BRANCH}"
 echo "App Directory: ${APP_DIR}"
 echo "Database: ${DB_NAME}"
+echo "Domain: ${DOMAIN}"
+echo "OAuth Ports: HTTP ${OAUTH_HTTP_PORT}, HTTPS ${OAUTH_HTTPS_PORT}"
+
+# ===== OAuth Domain Setup Check =====
+echo ""
+echo "🔍 Checking OAuth domain and SSL setup..."
+
+# Check if SSL certificates exist for the domain
+if [ ! -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
+    echo "⚠️  SSL certificates not found for ${DOMAIN}"
+    echo "🚀 Running OAuth domain setup script..."
+    
+    # Check if setup script exists
+    if [ -f "${APP_DIR}/repo/scripts/setup-oauth-domain.sh" ]; then
+        bash "${APP_DIR}/repo/scripts/setup-oauth-domain.sh"
+    elif [ -f "./setup-oauth-domain.sh" ]; then
+        bash "./setup-oauth-domain.sh"
+    else
+        echo "❌ Error: setup-oauth-domain.sh not found!"
+        echo "Please run setup-oauth-domain.sh manually before deploying."
+        exit 1
+    fi
+else
+    echo "✅ OAuth domain setup already complete (SSL certificates found)"
+fi
 
 # Update system
 apt-get update -y
@@ -76,7 +84,7 @@ pip install --upgrade -e .
 
 # Grant Python capability to bind to privileged ports (80, 443) without root
 # The venv python is a symlink, so we need to apply setcap to the real binary
-PYTHON_VENV=/opt/rspotify-bot/venv/bin/python3.11
+PYTHON_VENV=${APP_DIR}/venv/bin/python3.11
 if [ -L "$PYTHON_VENV" ]; then
     PYTHON_BIN=$(readlink -f "$PYTHON_VENV")
 else
@@ -95,7 +103,7 @@ else
 fi
 
 # Create .env file in repo directory (where the bot loads from)
-cat > /opt/rspotify-bot/repo/.env << EOF
+cat > ${APP_DIR}/repo/.env << EOF
 TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
 OWNER_TELEGRAM_ID=${OWNER_TELEGRAM_ID}
 SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
