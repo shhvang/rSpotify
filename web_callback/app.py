@@ -612,8 +612,10 @@ async def main():
         
         logger.info('=' * 80)
         logger.info('🚀 OAuth callback service is ready!')
-        logger.info(f'   HTTPS: https://{Config.DOMAIN}:{https_port if https_port != 443 else ""}/spotify/callback')
-        logger.info(f'   HTTP:  http://{Config.DOMAIN}:{http_port if http_port != 80 else ""}/.well-known/acme-challenge/')
+        https_host = f"{Config.DOMAIN}:{https_port}" if https_port != 443 else Config.DOMAIN
+        http_host = f"{Config.DOMAIN}:{http_port}" if http_port != 80 else Config.DOMAIN
+        logger.info(f'   HTTPS: https://{https_host}/spotify/callback')
+        logger.info(f'   HTTP:  http://{http_host}/.well-known/acme-challenge/')
         logger.info('=' * 80)
         
         # Keep running until interrupted
