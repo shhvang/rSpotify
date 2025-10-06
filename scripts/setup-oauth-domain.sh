@@ -1,6 +1,7 @@
 #!/bin/bash
 # Automated OAuth Domain Setup Script for rSpotify
-# Run this on a fresh VPS to set up DNS, Nginx, and SSL for OAuth
+# Run this on a fresh VPS to set up DNS for OAuth
+# Note: SSL is handled automatically by aiohttp + certbot (no Nginx needed)
 
 set -e  # Exit on any error
 
@@ -65,112 +66,15 @@ dig @localhost $PROD_DOMAIN +short
 echo "Checking DNS for test domain:"
 dig @localhost $TEST_DOMAIN +short
 
-# ===== Step 2: Install and Configure Nginx =====
+# ===== Step 2: Open Firewall Ports =====
 echo ""
-echo "📦 Step 2: Setting up Nginx..."
-DEBIAN_FRONTEND=noninteractive apt install -y nginx
+echo "� Step 2: Configuring firewall..."
+ufw allow 80/tcp   # HTTP (for certbot ACME challenge and production OAuth)
+ufw allow 443/tcp  # HTTPS (for production OAuth callbacks)
+ufw allow 8080/tcp # HTTP (for test OAuth)
+ufw allow 8443/tcp # HTTPS (for test OAuth callbacks)
 
-# Production OAuth configuration (ports 80/443)
-cat > /etc/nginx/sites-available/rspotify-oauth << 'NGINXEOF'
-server {
-    listen 80;
-    server_name rspotify.shhvang.space;
-
-    location /.well-known/acme-challenge/ {
-        root /var/www/html;
-    }
-
-    location /spotify/callback {
-        proxy_pass http://localhost:80;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location / {
-        return 404;
-    }
-}
-
-server {
-    listen 443 ssl;
-    server_name rspotify.shhvang.space;
-
-    # SSL certificates will be added by certbot
-    
-    location /spotify/callback {
-        proxy_pass https://localhost:443;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location / {
-        return 404;
-    }
-}
-NGINXEOF
-
-# Test OAuth configuration (ports 8080/8443)
-cat > /etc/nginx/sites-available/rspotify-oauth-test << 'NGINXEOF'
-server {
-    listen 80;
-    server_name rspotifytest.shhvang.space;
-
-    location /.well-known/acme-challenge/ {
-        root /var/www/html;
-    }
-
-    location /spotify/callback {
-        proxy_pass http://localhost:8080;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location / {
-        return 404;
-    }
-}
-
-server {
-    listen 443 ssl;
-    server_name rspotifytest.shhvang.space;
-
-    # SSL certificates will be added by certbot
-    
-    location /spotify/callback {
-        proxy_pass https://localhost:8443;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location / {
-        return 404;
-    }
-}
-NGINXEOF
-
-ln -sf /etc/nginx/sites-available/rspotify-oauth /etc/nginx/sites-enabled/
-ln -sf /etc/nginx/sites-available/rspotify-oauth-test /etc/nginx/sites-enabled/
-nginx -t
-systemctl reload nginx
-systemctl enable nginx
-
-ufw allow 80/tcp
-ufw allow 443/tcp
-
-echo "✅ Nginx configured for both production and test domains!"
-
-# ===== Step 3: Install Certbot =====
-echo ""
-echo "📦 Step 3: Installing Certbot for SSL..."
-DEBIAN_FRONTEND=noninteractive apt install -y certbot python3-certbot-nginx
+echo "✅ Firewall configured for OAuth services!"
 
 echo ""
 echo "🎉 Setup complete!"
@@ -183,26 +87,27 @@ echo "1️⃣  Wait for DNS propagation (5-60 minutes)"
 echo "   Test production: dig $PROD_DOMAIN @8.8.8.8 +short"
 echo "   Test staging: dig $TEST_DOMAIN @8.8.8.8 +short"
 echo ""
-echo "2️⃣  Once DNS resolves, run SSL certificate setup:"
-echo "   certbot --nginx -d $PROD_DOMAIN -d $TEST_DOMAIN"
-echo ""
-echo "3️⃣  Deploy production and test environments:"
+echo "2️⃣  Deploy production and test environments:"
 echo "   Production: ./scripts/deploy.sh"
 echo "   Test: ./scripts/deploy-test.sh"
 echo ""
-echo "4️⃣  Update Spotify Developer App redirect URIs:"
+echo "   ⚠️  IMPORTANT: The deployment scripts will:"
+echo "      - Start aiohttp OAuth services on configured ports"
+echo "      - Automatically obtain SSL certificates via certbot"
+echo "      - No Nginx needed - aiohttp handles SSL directly!"
+echo ""
+echo "3️⃣  Update Spotify Developer App redirect URIs:"
 echo "   https://$PROD_DOMAIN/spotify/callback"
 echo "   https://$TEST_DOMAIN/spotify/callback"
 echo ""
-echo "5️⃣  Test OAuth flow:"
+echo "4️⃣  Test OAuth flow:"
 echo "   Production: Send /login to production bot"
 echo "   Test: Send /login to test bot"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "✅ DNS Server: Running on port 53"
-echo "✅ Nginx: Running on port 80/443"
-echo "✅ Firewall: Ports 22, 53, 80, 443 open"
+echo "✅ Firewall: Ports 53, 80, 443, 8080, 8443 open"
 echo ""
 echo "📊 DNS Status:"
 echo "Production:"
@@ -211,7 +116,12 @@ echo "Test:"
 dig @localhost $TEST_DOMAIN +short
 echo ""
 echo "💡 Port Configuration:"
-echo "   Production OAuth: Ports 80 (HTTP) / 443 (HTTPS)"
-echo "   Test OAuth: Ports 8080 (HTTP) / 8443 (HTTPS)"
+echo "   Production OAuth (aiohttp): Ports 80 (HTTP) / 443 (HTTPS)"
+echo "   Test OAuth (aiohttp): Ports 8080 (HTTP) / 8443 (HTTPS)"
+echo ""
+echo "💡 Architecture Note:"
+echo "   - aiohttp services bind directly to their ports (CAP_NET_BIND_SERVICE)"
+echo "   - SSL certificates managed automatically by certbot integration"
+echo "   - No reverse proxy needed - aiohttp serves HTTPS directly!"
 echo ""
 echo "💡 Save this script for reuse on future VPS migrations!"
