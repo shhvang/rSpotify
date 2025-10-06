@@ -43,6 +43,16 @@ Draft
 ...
 ```
 
+### Rule #0.4: Documentation Summary Policy
+**DO NOT create documentation summaries unless explicitly requested by the user**
+- Agents should not autonomously create summary documents after completing work
+- If explicitly requested, summaries must be placed in `/summaries/` directory (root repository)
+- Summary files must follow naming convention: `{number}-{DESCRIPTION}.md`
+  - Example: `1-COURSE_CORRECTION.md`, `2-EPIC_1_COMPLETION.md`, `3-OAUTH_MIGRATION.md`
+- Number increments sequentially (1, 2, 3, etc.)
+- Only create summaries when user explicitly asks: "create a summary" or "document this work"
+- Default behavior: Complete work without creating summary documentation
+
 ## Rule #1: Quality Over Speed
 **Do not rush, take your time and complete the tasks with utmost detailing and precision. Do not worry about time consumption.**
 
