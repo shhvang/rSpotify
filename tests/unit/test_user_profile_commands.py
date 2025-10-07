@@ -302,6 +302,9 @@ class TestSpotifyProfileFetching:
     """Test suite for Spotify profile fetching."""
 
     @pytest.mark.asyncio
+    @patch("rspotify_bot.services.auth.Config.SPOTIFY_CLIENT_ID", "test_client_id")
+    @patch("rspotify_bot.services.auth.Config.SPOTIFY_CLIENT_SECRET", "test_secret")
+    @patch("rspotify_bot.services.auth.Config.SPOTIFY_REDIRECT_URI", "https://test.com/callback")
     async def test_get_user_profile_success(self):
         """Test successful Spotify profile fetch."""
         from rspotify_bot.services.auth import SpotifyAuthService
@@ -331,6 +334,9 @@ class TestSpotifyProfileFetching:
         assert profile["email"] == "test@example.com"
 
     @pytest.mark.asyncio
+    @patch("rspotify_bot.services.auth.Config.SPOTIFY_CLIENT_ID", "test_client_id")
+    @patch("rspotify_bot.services.auth.Config.SPOTIFY_CLIENT_SECRET", "test_secret")
+    @patch("rspotify_bot.services.auth.Config.SPOTIFY_REDIRECT_URI", "https://test.com/callback")
     async def test_get_user_profile_expired_token(self):
         """Test Spotify profile fetch with expired token."""
         from rspotify_bot.services.auth import SpotifyAuthService

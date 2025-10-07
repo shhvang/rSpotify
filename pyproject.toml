@@ -26,6 +26,10 @@ dependencies = [
     "Pillow==10.1.0",
     "python-dotenv==1.0.0",
     "cryptography==41.0.7",
+    "aiohttp==3.9.1",
+    "certbot==2.7.4",
+    "acme==2.7.4",
+    "better-profanity==0.7.0",
 ]
 
 [project.optional-dependencies]

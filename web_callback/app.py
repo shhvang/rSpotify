@@ -554,12 +554,22 @@ async def main():
         logger.info('Starting rSpotify OAuth Callback Service (aiohttp + certbot)')
         logger.info('=' * 80)
         
+        # Get port configuration from environment (default to 80/443 for production)
+        try:
+            http_port = int(os.getenv('OAUTH_HTTP_PORT', '80'))
+            https_port = int(os.getenv('OAUTH_HTTPS_PORT', '443'))
+        except (ValueError, TypeError) as e:
+            logger.error(f"Invalid port value in environment variables: {e}")
+            sys.exit(1)
+        
         # Validate configuration
         logger.info('Validating configuration...')
         logger.info(f'DOMAIN: {Config.DOMAIN}')
         logger.info(f'CERTBOT_EMAIL: {Config.CERTBOT_EMAIL}')
         logger.info(f'MONGODB_URI: {"*" * 20 if Config.MONGODB_URI else "NOT SET"}')
         logger.info(f'BOT_USERNAME: {Config.BOT_USERNAME}')
+        logger.info(f'HTTP Port: {http_port}')
+        logger.info(f'HTTPS Port: {https_port}')
         
         if not Config.DOMAIN:
             logger.error('DOMAIN environment variable is not set!')
@@ -590,24 +600,26 @@ async def main():
         logger.info(f'SSL key path: {key_path}')
         
         if cert_path and key_path:
-            # Run HTTPS server on port 443
-            logger.info('Starting HTTPS server on port 443...')
-            https_runner = await run_https_server(app, cert_path, key_path, port=443)
+            # Run HTTPS server
+            logger.info(f'Starting HTTPS server on port {https_port}...')
+            https_runner = await run_https_server(app, cert_path, key_path, port=https_port)
             runners.append(https_runner)
-            logger.info('✅ HTTPS server running on port 443')
+            logger.info(f'✅ HTTPS server running on port {https_port}')
         else:
             logger.warning('SSL certificates not available - running HTTP only for ACME challenges')
         
-        # Always run HTTP server on port 80 for ACME challenges and redirects
-        logger.info('Starting HTTP server on port 80...')
-        http_runner = await run_http_server(app, port=80)
+        # Always run HTTP server for ACME challenges and redirects
+        logger.info(f'Starting HTTP server on port {http_port}...')
+        http_runner = await run_http_server(app, port=http_port)
         runners.append(http_runner)
-        logger.info('✅ HTTP server running on port 80')
+        logger.info(f'✅ HTTP server running on port {http_port}')
         
         logger.info('=' * 80)
         logger.info('🚀 OAuth callback service is ready!')
-        logger.info(f'   HTTPS: https://{Config.DOMAIN}/spotify/callback')
-        logger.info(f'   HTTP:  http://{Config.DOMAIN}/.well-known/acme-challenge/')
+        https_host = f"{Config.DOMAIN}:{https_port}" if https_port != 443 else Config.DOMAIN
+        http_host = f"{Config.DOMAIN}:{http_port}" if http_port != 80 else Config.DOMAIN
+        logger.info(f'   HTTPS: https://{https_host}/spotify/callback')
+        logger.info(f'   HTTP:  http://{http_host}/.well-known/acme-challenge/')
         logger.info('=' * 80)
         
         # Keep running until interrupted
