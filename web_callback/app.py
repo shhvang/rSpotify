@@ -555,8 +555,12 @@ async def main():
         logger.info('=' * 80)
         
         # Get port configuration from environment (default to 80/443 for production)
-        http_port = int(os.getenv('OAUTH_HTTP_PORT', '80'))
-        https_port = int(os.getenv('OAUTH_HTTPS_PORT', '443'))
+        try:
+            http_port = int(os.getenv('OAUTH_HTTP_PORT', '80'))
+            https_port = int(os.getenv('OAUTH_HTTPS_PORT', '443'))
+        except (ValueError, TypeError) as e:
+            logger.error(f"Invalid port value in environment variables: {e}")
+            sys.exit(1)
         
         # Validate configuration
         logger.info('Validating configuration...')
