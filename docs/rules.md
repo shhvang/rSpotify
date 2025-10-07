@@ -358,6 +358,72 @@ Key settings:
 - Makes debugging impossible
 - Wastes time on "fixed" bugs that reappear
 - Can cause data corruption or inconsistent state
+
+## Rule #18: UTF-8 Encoding Standard - MANDATORY
+**ALL source files MUST be encoded in UTF-8 with BOM or UTF-8 without BOM**
+
+### The Problem:
+Mixed file encodings cause:
+- Character encoding errors in strings
+- Import failures with non-ASCII characters
+- Inconsistent behavior across different environments
+- Issues with special characters in comments or docstrings
+- Python runtime errors when reading/writing files
+
+### The Solution:
+**File Encoding Requirements:**
+1. **All Python files (.py)**: UTF-8 encoding (with or without BOM)
+2. **All text files (.md, .txt, .json, .yaml)**: UTF-8 encoding
+3. **All configuration files**: UTF-8 encoding
+4. **Source control**: Configure git to handle UTF-8 properly
+
+**How to Verify Encoding:**
+```bash
+# PowerShell: Check file encoding
+Get-Content -Path "file.py" -Encoding UTF8
+
+# VS Code: Check encoding in status bar (bottom-right)
+# Click to change if needed
+```
+
+**How to Fix Non-UTF-8 Files:**
+1. Open file in VS Code
+2. Click encoding indicator in status bar (bottom-right)
+3. Select "Save with Encoding"
+4. Choose "UTF-8" or "UTF-8 with BOM"
+
+### Python Code Requirements:
+```python
+# Always specify UTF-8 when reading/writing files
+with open('file.txt', 'r', encoding='utf-8') as f:
+    content = f.read()
+
+with open('file.txt', 'w', encoding='utf-8') as f:
+    f.write(content)
+```
+
+### Prevention Rules:
+1. **NEVER** commit files with non-UTF-8 encoding
+2. **ALWAYS** specify `encoding='utf-8'` in file operations
+3. **CHECK** file encoding before committing
+4. **CONFIGURE** IDE/editor to default to UTF-8
+5. **TEST** on Windows (PowerShell) to catch encoding issues early
+
+### VS Code Configuration:
+Add to `.vscode/settings.json`:
+```json
+{
+  "files.encoding": "utf8",
+  "files.autoGuessEncoding": false
+}
+```
+
+### Impact:
+- Prevents runtime encoding errors
+- Ensures cross-platform compatibility
+- Makes code review easier
+- Avoids git diff issues with encoding mismatches
+
 ## Rule #15: PyMongo Database Truthiness - CRITICAL
 **NEVER use boolean checks on pymongo Database objects**
 
