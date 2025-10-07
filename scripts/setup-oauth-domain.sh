@@ -53,19 +53,15 @@ named-checkconf
 named-checkzone $ROOT_DOMAIN /etc/bind/zones/db.$ROOT_DOMAIN
 
 # Start and enable BIND (handle distro-specific service names)
-BIND_SERVICE="bind9"
-if ! systemctl list-unit-files | grep -q "^bind9.service"; then
-    BIND_SERVICE="named"
+PRIMARY_SERVICE="bind9"
+if systemctl list-unit-files | grep -q "^named.service"; then
+    PRIMARY_SERVICE="named"
 fi
 
-# Restart service
-systemctl restart "$BIND_SERVICE"
-# Enable main unit (avoid enabling aliases)
-if [ "$BIND_SERVICE" = "bind9" ]; then
-    systemctl enable bind9
-else
-    systemctl enable named
-fi
+# Restart service (fallback between bind9/named)
+systemctl restart "$PRIMARY_SERVICE" || systemctl restart bind9 || systemctl restart named
+# Enable unit (handle alias/linked units gracefully)
+systemctl enable "$PRIMARY_SERVICE" 2>/dev/null || systemctl enable bind9 2>/dev/null || systemctl enable named 2>/dev/null || true
 
 # Configure firewall for DNS
 ufw allow 53/tcp
