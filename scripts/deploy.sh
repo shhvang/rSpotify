@@ -11,8 +11,8 @@ DB_NAME="rspotify"
 SUPERVISOR_BOT_NAME="rspotify-bot"
 SUPERVISOR_OAUTH_NAME="rspotify-oauth"
 DOMAIN="rspotify.shhvang.space"
-OAUTH_HTTP_PORT="80"
-OAUTH_HTTPS_PORT="443"
+OAUTH_HTTP_PORT="6969"
+OAUTH_HTTPS_PORT="6970"
 # ============================================
 
 echo "🚀 Starting rSpotify Bot deployment..."
@@ -112,6 +112,7 @@ MONGODB_DATABASE=${DB_NAME}
 ENVIRONMENT=${ENVIRONMENT}
 DEBUG=false
 LOG_LEVEL=INFO
+RS_BOT_PID_FILE=/tmp/rspotify-bot-production.pid
 PASTEBIN_API_KEY=${PASTEBIN_API_KEY}
 PASTEBIN_USER_KEY=${PASTEBIN_USER_KEY}
 DOMAIN=${DOMAIN}

@@ -3,7 +3,12 @@ set -e
 
 # ============================================
 # TEST DEPLOYMENT CONFIGURATION
-# ============================================
+# =======MONGODB_URI=${MONGODB_URI}
+MONGDB_DATABASE=${DB_NAME}
+ENVIRONMENT=${ENVIRONMENT}
+DEBUG=true
+LOG_LEVEL=DEBUG
+RS_BOT_PID_FILE=/tmp/rspotify-bot-test.pid================================
 ENVIRONMENT="test"
 BRANCH="develop"
 APP_DIR="/opt/rspotify-bot-test"
@@ -11,8 +16,8 @@ DB_NAME="rspotify_test"
 SUPERVISOR_BOT_NAME="rspotify-bot-test"
 SUPERVISOR_OAUTH_NAME="rspotify-oauth-test"
 DOMAIN="${PRODUCTION_HOST}"  # Set via GitHub secrets PRODUCTION_HOST_TEST
-OAUTH_HTTP_PORT="8080"  # Different from production (80)
-OAUTH_HTTPS_PORT="8443"  # Different from production (443)
+OAUTH_HTTP_PORT="7000"  # Different from production (6969)
+OAUTH_HTTPS_PORT="7001"  # Different from production (6970)
 # ============================================
 
 echo "🧪 Starting rSpotify Bot TEST environment deployment..."
