@@ -121,6 +121,9 @@ async def handle_login(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             )
         except Exception:
             pass
+        
+        # Prevent error from propagating to global error handler (avoids duplicate error messages)
+        return
 
 
 async def handle_logout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -730,7 +733,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 f"• 💬 Send feedback and suggestions\n\n"
                 f"<b>🚀 Let's Get Started!</b>\n"
                 f"Connect your Spotify account to unlock all features.\n\n"
-                f"<i>Your privacy matters: </i><a href=\"https://github.com/shhvang/rSpotify/blob/main/PRIVACY.md\">Read our Privacy Policy</a>"
+                f"<i>Your privacy matters. Use </i><code>/privacy</code><i> to view our Privacy Policy.</i>"
             )
             
             keyboard = InlineKeyboardMarkup([
@@ -752,7 +755,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 f"• 📊 Get detailed track information\n\n"
                 f"<b>🚀 Ready to Continue?</b>\n"
                 f"Connect your Spotify account to get started.\n\n"
-                f"<i>Your privacy matters: </i><a href=\"https://github.com/shhvang/rSpotify/blob/main/PRIVACY.md\">Read our Privacy Policy</a>"
+                f"<i>Your privacy matters. Use </i><code>/privacy</code><i> to view our Privacy Policy.</i>"
             )
             
             keyboard = InlineKeyboardMarkup([
@@ -772,6 +775,8 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "<b>❌ Error</b>\n\n"
             "An unexpected error occurred. Please try again later."
         )
+        # Prevent error from propagating to global error handler
+        return
 
 
 async def handle_start_login_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1188,11 +1193,9 @@ async def handle_privacy(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "• Encrypted token storage\n"
             "• No plain-text credential storage\n\n"
             "<b>Contact:</b>\n"
-            "• Use <code>/feedback</code> for privacy concerns\n"
-            "• GitHub: <a href=\"https://github.com/shhvang/rSpotify\">shhvang/rSpotify</a>\n\n"
+            "• Use <code>/feedback</code> for privacy concerns\n\n"
             "<i>Last updated: October 2025</i>\n\n"
-            "For the full privacy policy, visit:\n"
-            "<a href=\"https://github.com/shhvang/rSpotify/blob/main/PRIVACY.md\">GitHub Privacy Policy</a>"
+            "This bot is a private service. For support, use the <code>/feedback</code> command."
         )
         
         # Add back button if called from help menu

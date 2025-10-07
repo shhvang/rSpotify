@@ -81,9 +81,8 @@ A production-ready Telegram bot for Spotify integration with OAuth authenticatio
 
 ### Installation
 
-1. Clone the repository:
+1. Navigate to the project directory:
    ```bash
-   git clone https://github.com/shhvang/rSpotify.git
    cd rSpotify/rspotify-bot
    ```
 
@@ -290,24 +289,23 @@ pytest
 pytest --cov=rspotify_bot --cov-report=html
 pytest tests/unit/test_story_1_4_oauth_e2e.py
 
-## Contributing
+## Development Guidelines
 
-1. Fork the repository
-2. Create a feature branch: git checkout -b feature/story-x.y-description
-3. Add tests for new functionality
-4. Run linting: black . && flake8 && mypy rspotify_bot
-5. Ensure all tests pass: pytest
-6. Submit a pull request
+1. Create a feature branch: git checkout -b feature/story-x.y-description
+2. Add tests for new functionality
+3. Run linting: black . && flake8 && mypy rspotify_bot
+4. Ensure all tests pass: pytest
+5. Commit and push changes for review
 
 ## License
 
-MIT License - see LICENSE file for details.
+Proprietary - All rights reserved.
 
 ## Support
 
-- GitHub Issues: https://github.com/shhvang/rSpotify/issues
-- Documentation: See /docs directory
-- Stories: See /docs/stories for detailed user stories
+- Internal Documentation: See /docs directory
+- User Stories: See /docs/stories for detailed development stories
+- For user support: Use /feedback command in the bot
 
 ## Version History
 
