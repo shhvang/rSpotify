@@ -352,6 +352,8 @@ async def spotify_callback(request: web.Request) -> web.Response:
                 status=500
             )
 
+        # Strip @ symbol if present (username should not have @ in deep link URL)
+        bot_username = bot_username.lstrip('@')
         telegram_url = f'https://t.me/{bot_username}?start={code_id}'
         logger.info(f'Redirecting to Telegram: {telegram_url}')
 
