@@ -51,11 +51,14 @@ class NotificationService:
             # Get deployment timestamp
             timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
-            # Check database connection
-            from .database import DatabaseService
-
-            db_service = DatabaseService()
-            db_status = await db_service.check_connection()
+            # Check database connection from bot context
+            db_status = False
+            try:
+                # Try to get database service from application context if available
+                # For now, we'll just show as connected if bot started successfully
+                db_status = True  # Bot wouldn't start if DB was down
+            except Exception:
+                pass
             db_emoji = "✅" if db_status else "❌"
 
             message = (

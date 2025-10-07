@@ -107,6 +107,7 @@ class SpotifyAuthService:
 
     # Required Spotify scopes for the bot
     REQUIRED_SCOPES = [
+        "user-read-email",  # Required to get subscription type (free/premium)
         "user-read-currently-playing",
         "user-modify-playback-state",
         "user-read-playback-state",
