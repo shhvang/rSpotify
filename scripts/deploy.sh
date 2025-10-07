@@ -118,7 +118,12 @@ PASTEBIN_USER_KEY=${PASTEBIN_USER_KEY}
 DOMAIN=${DOMAIN}
 BOT_USERNAME=${BOT_USERNAME}
 CERTBOT_EMAIL=${CERTBOT_EMAIL}
-SPOTIFY_REDIRECT_URI=https://${DOMAIN}/spotify/callback
+# Include port in redirect URI if not using standard HTTPS port 443
+if [ "${OAUTH_HTTPS_PORT}" = "443" ]; then
+    SPOTIFY_REDIRECT_URI=https://${DOMAIN}/spotify/callback
+else
+    SPOTIFY_REDIRECT_URI=https://${DOMAIN}:${OAUTH_HTTPS_PORT}/spotify/callback
+fi
 OAUTH_HTTP_PORT=${OAUTH_HTTP_PORT}
 OAUTH_HTTPS_PORT=${OAUTH_HTTPS_PORT}
 EOF
