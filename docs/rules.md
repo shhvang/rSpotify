@@ -1,202 +1,208 @@
 # Development Agent Rules & Guidelines
 
-## MANDATORY PRE-WORK: Context Loading Requirements
+> **⚠️ PROPRIETARY PROJECT NOTICE:**  
+> This is a **PRIVATE, PROPRIETARY** project. NOT open source. Do NOT reference GitHub, open source, forking, or contributions in ANY user-facing messages, documentation, or code comments.
 
-### Rule #0.1: Read docs/rules.md FIRST (THIS FILE)
-**CRITICAL: Always read this entire rules.md file before starting any work**
-- This file contains all development standards, patterns, and critical lessons learned
-- Reading this file prevents repeated mistakes and ensures consistency
-- Explicitly acknowledge you have read and understood this file before proceeding
+---
 
-### Rule #0.2: Read docs/corrections/ Before Development
-**CRITICAL: Always read all files in docs/corrections/ before developing or creating stories**
-- The corrections folder contains critical architecture decisions and implementation details
-- These documents override any conflicting information in PRD or Architecture files
-- Stories must reference relevant correction documents explicitly
-- Acknowledge corrections documents in your planning before starting development
+## 0. MANDATORY PRE-WORK
 
-### Rule #0.3: Story Creation Requirements
-**All new stories MUST include these mandatory sections:**
-1. **"Read First" section at the top** listing:
-   - `docs/rules.md` (this file)
-   - All relevant `docs/corrections/*.md` files
-   - Related architecture and PRD sections
-2. **Explicit acknowledgment** that correction documents override base architecture
-3. **Reference to correction documents** in Dev Notes section
+### 0.1 Read This File First
+**CRITICAL:** Read this ENTIRE file before starting any work. Acknowledge understanding.
 
-**Example Story Header:**
-```markdown
-# Story X.X: Feature Name
+### 0.2 Load Required Context
+Before development, read:
+- This `docs/rules.md` file
+- All files in `docs/corrections/` (override PRD/Architecture)
+- Relevant PRD and Architecture sections
 
-## READ FIRST (Mandatory Context)
-Before starting this story, you MUST read:
-- ✅ `docs/rules.md` - Development standards and patterns
-- ✅ `docs/corrections/oauth-implementation.md` - OAuth architecture v2.0 (aiohttp+certbot)
-- ✅ PRD Section 6.X - Story requirements
-- ✅ Architecture Section X - Technical context
+### 0.3 Story Creation Requirements
+Stories MUST include:
+1. **"READ FIRST"** section listing required reading
+2. Acknowledgment that corrections override base docs
+3. References to correction documents in Dev Notes
 
-> **⚠️ CRITICAL:** Correction documents in `docs/corrections/` contain the ACTUAL implementation
-> and override any conflicting information in PRD or Architecture base files.
+### 0.4 Documentation Summaries
+**DO NOT** create summaries unless explicitly requested by user.
+- If requested: Place in `/summaries/` as `{number}-{DESCRIPTION}.md`
+- Default: Complete work WITHOUT creating summaries
 
-## Status
-Draft
-...
-```
+---
 
-### Rule #0.4: Documentation Summary Policy
-**DO NOT create documentation summaries unless explicitly requested by the user**
-- Agents should not autonomously create summary documents after completing work
-- If explicitly requested, summaries must be placed in `/summaries/` directory (root repository)
-- Summary files must follow naming convention: `{number}-{DESCRIPTION}.md`
-  - Example: `1-COURSE_CORRECTION.md`, `2-EPIC_1_COMPLETION.md`, `3-OAUTH_MIGRATION.md`
-- Number increments sequentially (1, 2, 3, etc.)
-- Only create summaries when user explicitly asks: "create a summary" or "document this work"
-- Default behavior: Complete work without creating summary documentation
+## 1. CORE PRINCIPLES
 
-## Rule #1: Quality Over Speed
-**Do not rush, take your time and complete the tasks with utmost detailing and precision. Do not worry about time consumption.**
-
-The quality of implementation, thoroughness of testing, and attention to detail are paramount. It is better to take additional time to ensure:
-- Complete and correct implementation
-- Comprehensive error handling
-- Proper testing coverage
+### 1.1 Quality Over Speed
+**Take time. Be thorough. Don't rush.**
+- Complete implementation
+- Comprehensive error handling & testing
 - Clear documentation
-- Robust security practices
-- Performance optimization
+- Robust security & performance
 
-Speed should never come at the expense of quality, reliability, or maintainability.
-
-## Rule #2: Comprehensive Testing
-All code must include appropriate tests:
-- Unit tests for individual components
-- Integration tests for service interactions
-- End-to-end tests for complete workflows
+### 1.2 Testing Requirements
+- Unit tests for components
+- Integration tests for services
+- End-to-end tests for workflows
 - Performance tests for critical paths
 
-## Rule #3: Security First
-Always implement security best practices:
-- Secure environment variable handling
-- Input validation and sanitization
-- Proper error handling without information leakage
-- Rate limiting and abuse prevention
-- Encryption for sensitive data
+### 1.3 Security First
+- Secure environment variables
+- Input validation & sanitization
+- No information leakage in errors
+- Rate limiting & encryption
 
-## Rule #4: Documentation Standards
-Maintain clear and comprehensive documentation:
-- Inline code comments for complex logic
-- Docstrings for all functions and classes
-- README updates for new features
-- Architecture documentation for design decisions
+### 1.4 Code Quality
+- Clear naming conventions
+- Single-purpose functions
+- Inline comments for complex logic
+- Docstrings for all functions/classes
 
-## Rule #5: Error Handling Excellence
-Implement robust error handling:
-- Graceful degradation when services are unavailable
-- Meaningful error messages for users
-- Proper logging for debugging
-- Recovery mechanisms where possible
+---
 
-## Rule #6: Performance Considerations
-Always consider performance implications:
-- Efficient database queries
-- Proper caching strategies
-- Async/await patterns for I/O operations
-- Resource cleanup and memory management
+## 2. PROJECT-SPECIFIC RULES
 
-## Rule #7: HTML Formatting for User Messages
-Use HTML formatting globally for all user-facing messages in Telegram:
-- Use `<b>` for bold text
-- Use `<i>` for italic text
-- Use `<code>` for inline code
-- Use `<pre>` for code blocks
-- Use `<a href="url">text</a>` for links
-- Set `parse_mode="HTML"` in all message sending functions
-- Escape HTML special characters (&, <, >) when displaying user data
+### 2.1 Working Directory Structure
+```
+/rSpotify/rspotify-bot/  ← Main app is HERE
+```
+**ALWAYS** verify with `Get-Location` before running commands.
 
-## Rule #7: Code Review Mindset
-Write code as if it will be reviewed by senior engineers:
-- Follow established coding standards
-- Use meaningful variable and function names
-- Keep functions focused and single-purpose
-- Maintain consistent code style
+### 2.2 HTML Formatting for Telegram
+ALL user-facing messages use HTML:
+- `<b>bold</b>`, `<i>italic</i>`, `<code>code</code>`
+- Set `parse_mode="HTML"` on all message functions
+- Escape HTML special chars (&, <, >) in user data
 
-## Rule #8: Terminal Command Safety
-**CRITICAL: Always verify terminal commands before execution**
-- Always check you are trying to run valid, harmless code in the terminal
-- Verify commands will not break or corrupt the codebase
-- Double-check file paths and working directories before running commands
-- Test commands in safe environments when uncertain
+### 2.3 Error Handling Pattern
+- Add `return` statement after handling exceptions to prevent propagation to global error handler
+- Prevents duplicate error messages to users
+- Log errors properly before returning
 
-## Rule #9: Working Directory Awareness
-**CRITICAL: Always verify correct working directory**
-- The project structure has a nested directory: `/rSpotify/rspotify-bot/`
-- Main application files are in `/rspotify-bot/` subdirectory, NOT in `/rSpotify/`
-- Always check current working directory with `pwd` or `Get-Location` before running commands
-- Navigate to correct directory before executing Python scripts or package management commands
-- Example: To run the bot, navigate to `/rspotify-bot/` directory first, then run `python rspotify.py`
+```python
+except Exception as e:
+    logger.error(f"Error: {e}")
+    await message.reply_html("Error message")
+    return  # ← Prevent double error messages
+```
 
-## Rule #10: Mistake Documentation & Learning
-**Append new rules when mistakes are discovered**
-- When you make a mistake and fix it, immediately add a new rule to this file
-- Document the specific mistake, the correct approach, and prevention methods
-- Update this file as a living document to prevent recurring issues
-- Each new rule should include the context of what went wrong and how to avoid it
+---
 
-## Rule #11: Version Control System (VCS) Workflow - MANDATORY
-**CRITICAL: Always use feature branches for development - NEVER commit directly to main**
+## 3. CRITICAL TECHNICAL PATTERNS
 
-### Feature Branch Workflow:
-1. **Before Starting Any Story**: Create a new feature branch
-   - Branch naming: `feature/story-{epic}.{story}-{short-description}`
-   - Example: `git checkout -b feature/story-1.3-secure-user-data-storage`
-   
-2. **During Development**: 
-   - Make all commits to the feature branch
-   - Commit frequently with descriptive messages
-   - Follow conventional commit format: `feat:`, `fix:`, `test:`, `docs:`, etc.
-   
-3. **After Story Completion**:
-   - Push feature branch to remote: `git push origin feature/story-x.x-description`
-   - Create Pull Request (PR) for review
-   - **WAIT for owner confirmation before merging**
-   - Do NOT merge to main without explicit owner approval
-   
-4. **After Owner Approval**:
-   - Owner will merge PR to main branch
-   - Delete feature branch after successful merge
-   - Pull latest main before starting next story
+### 3.1 Async MongoDB Operations
+**ALWAYS** wrap pymongo calls with `asyncio.to_thread()`:
+```python
+# ✅ CORRECT
+data = await asyncio.to_thread(collection.find_one, {"key": key})
 
-### Critical VCS Rules:
-- **NEVER** work directly on main branch
-- **NEVER** commit directly to main branch
-- **ALWAYS** create feature branch for each story
-- **ALWAYS** wait for owner approval before merging
-- If you accidentally commit to main, immediately stop and notify owner
+# ❌ WRONG (blocks event loop)
+data = collection.find_one({"key": key})
+```
 
-## Rule #12: Pillow (PIL) Library Installation
-**Handle Pillow installation issues on Windows systems**
+### 3.2 PyMongo Database Truthiness
+**NEVER** use boolean checks on Database objects:
+```python
+# ✅ CORRECT
+if db_service is None or db_service.database is None:
 
-### Known Issue:
-Pillow library may have installation issues on Windows systems, particularly with wheel building.
+# ❌ WRONG (NotImplementedError)
+if not db_service or not db_service.database:
+```
 
-### Solution Approach:
-1. **Try standard installation first**: `pip install Pillow==10.1.0`
-2. **If installation fails**, try these alternatives in order:
-   - Update pip first: `python -m pip install --upgrade pip`
-   - Install with no-cache: `pip install --no-cache-dir Pillow==10.1.0`
-   - Try latest stable version: `pip install Pillow` (without version pin)
-   - Use pre-built wheels from: `pip install --only-binary :all: Pillow`
+### 3.3 httpx Response Methods
+Response methods are **SYNCHRONOUS** - do NOT await:
+```python
+response = await client.post(url)  # ✅ Await request
+data = response.json()              # ✅ NO await
+text = response.text                # ✅ NO await
+```
 
-3. **For Windows-specific issues**:
-   - Ensure Microsoft Visual C++ Build Tools are installed
-   - Consider using conda if available: `conda install pillow`
-   - Document the working solution in installation docs
+### 3.4 UTF-8 Encoding
+- **ALL** source files: UTF-8 (with or without BOM)
+- Always specify `encoding='utf-8'` in file operations
+- Configure IDE default to UTF-8
 
-4. **Thread Safety Reminder**:
-   - Pillow operations must run in separate thread (executor) to avoid blocking async event loop
-   - Use `asyncio.get_event_loop().run_in_executor()` for image processing
+### 3.5 Pillow Threading
+- Pillow operations MUST run in thread pool
+- Use `asyncio.get_event_loop().run_in_executor()`
+- Never block async event loop with image processing
 
-### Documentation:
-When Pillow installation is resolved, document the working method in README.md under "Installation" section.
+---
+
+## 4. VERSION CONTROL WORKFLOW
+
+### Feature Branch Process
+```bash
+# 1. Create feature branch
+git checkout -b feature/story-X.X-description
+
+# 2. Commit frequently with conventional commits
+git commit -m "feat: add feature"
+
+# 3. Push for review
+git push origin feature/story-X.X-description
+
+# 4. WAIT for owner approval before merging
+```
+
+**CRITICAL RULES:**
+- ❌ **NEVER** commit directly to main
+- ❌ **NEVER** merge without owner approval
+- ✅ **ALWAYS** use feature branches
+- ✅ **ALWAYS** wait for review
+
+---
+
+## 5. DEPLOYMENT & PROCESS MANAGEMENT
+
+### 5.1 Supervisor-Only Deployment
+**NEVER** manually start bot processes:
+```bash
+# ❌ WRONG
+python rspotify.py
+
+# ✅ CORRECT
+sudo supervisorctl restart rspotify-bot
+```
+
+### 5.2 Deployment Checklist
+1. SSH to VPS
+2. Check for rogue processes: `ps aux | grep rspotify`
+3. Kill non-supervisor processes if found
+4. Pull latest code
+5. Restart via supervisor
+6. Verify only ONE instance running
+
+### 5.3 Prevent Duplicate Processes
+- Check `ps aux | grep rspotify` before/after deploy
+- Only supervisor-managed processes should exist
+- Multiple instances cause race conditions & API conflicts
+
+---
+
+## 6. TERMINAL COMMAND SAFETY
+
+### Before Running ANY Command:
+1. Verify correct working directory
+2. Check command won't break codebase
+3. Double-check file paths
+4. Test in safe environment if uncertain
+
+**Working Directory Check:**
+```powershell
+Get-Location  # Verify you're in /rspotify-bot/
+```
+
+---
+
+## 7. LEARNING & ADAPTATION
+
+### When Mistakes Occur:
+1. Fix the issue
+2. Add new rule to this file
+3. Document the mistake & correct approach
+4. Prevent recurrence
+
+**This is a LIVING DOCUMENT.** Update as needed.
 
 ## Rule #13: Future-Proofing
 Consider long-term maintainability:
@@ -358,6 +364,72 @@ Key settings:
 - Makes debugging impossible
 - Wastes time on "fixed" bugs that reappear
 - Can cause data corruption or inconsistent state
+
+## Rule #18: UTF-8 Encoding Standard - MANDATORY
+**ALL source files MUST be encoded in UTF-8 with BOM or UTF-8 without BOM**
+
+### The Problem:
+Mixed file encodings cause:
+- Character encoding errors in strings
+- Import failures with non-ASCII characters
+- Inconsistent behavior across different environments
+- Issues with special characters in comments or docstrings
+- Python runtime errors when reading/writing files
+
+### The Solution:
+**File Encoding Requirements:**
+1. **All Python files (.py)**: UTF-8 encoding (with or without BOM)
+2. **All text files (.md, .txt, .json, .yaml)**: UTF-8 encoding
+3. **All configuration files**: UTF-8 encoding
+4. **Source control**: Configure git to handle UTF-8 properly
+
+**How to Verify Encoding:**
+```bash
+# PowerShell: Check file encoding
+Get-Content -Path "file.py" -Encoding UTF8
+
+# VS Code: Check encoding in status bar (bottom-right)
+# Click to change if needed
+```
+
+**How to Fix Non-UTF-8 Files:**
+1. Open file in VS Code
+2. Click encoding indicator in status bar (bottom-right)
+3. Select "Save with Encoding"
+4. Choose "UTF-8" or "UTF-8 with BOM"
+
+### Python Code Requirements:
+```python
+# Always specify UTF-8 when reading/writing files
+with open('file.txt', 'r', encoding='utf-8') as f:
+    content = f.read()
+
+with open('file.txt', 'w', encoding='utf-8') as f:
+    f.write(content)
+```
+
+### Prevention Rules:
+1. **NEVER** commit files with non-UTF-8 encoding
+2. **ALWAYS** specify `encoding='utf-8'` in file operations
+3. **CHECK** file encoding before committing
+4. **CONFIGURE** IDE/editor to default to UTF-8
+5. **TEST** on Windows (PowerShell) to catch encoding issues early
+
+### VS Code Configuration:
+Add to `.vscode/settings.json`:
+```json
+{
+  "files.encoding": "utf8",
+  "files.autoGuessEncoding": false
+}
+```
+
+### Impact:
+- Prevents runtime encoding errors
+- Ensures cross-platform compatibility
+- Makes code review easier
+- Avoids git diff issues with encoding mismatches
+
 ## Rule #15: PyMongo Database Truthiness - CRITICAL
 **NEVER use boolean checks on pymongo Database objects**
 

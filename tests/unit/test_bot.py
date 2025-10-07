@@ -84,33 +84,8 @@ class TestRSpotifyBot:
         response_text = call_args[0][0]
         assert "❌ Disconnected" in response_text
 
-    @pytest.mark.asyncio
-    async def test_start_command(self, bot, mock_update, mock_context):
-        """Test /start command responds correctly."""
-        await bot.start_command(mock_update, mock_context)
-
-        # Verify response was sent
-        mock_update.message.reply_html.assert_called_once()
-        call_args = mock_update.message.reply_html.call_args
-
-        # Check response content
-        response_text = call_args[0][0]
-        assert "Welcome to rSpotify Bot!" in response_text
-        assert "TestUser" in response_text
-
-    @pytest.mark.asyncio
-    async def test_help_command(self, bot, mock_update, mock_context):
-        """Test /help command responds correctly."""
-        await bot.help_command(mock_update, mock_context)
-
-        # Verify response was sent
-        mock_update.message.reply_html.assert_called_once()
-        call_args = mock_update.message.reply_html.call_args
-
-        # Check response content
-        response_text = call_args[0][0]
-        assert "rSpotify Bot" in response_text
-        assert "/ping" in response_text
+    # NOTE: /start and /help commands are now tested in tests/unit/handlers/test_help_commands.py
+    # These commands were moved from bot.py to handlers/user_commands.py in Story 2.1
 
     @pytest.mark.asyncio
     async def test_unknown_command(self, bot, mock_update, mock_context):

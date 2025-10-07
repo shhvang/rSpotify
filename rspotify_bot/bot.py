@@ -80,6 +80,9 @@ class RSpotifyBot:
 
         # Register handlers
         self._register_handlers()
+        
+        # Register commands with Telegram for autocomplete
+        await self._register_bot_commands()
 
         # Start bot
         logger.info("Starting bot polling...")
@@ -116,6 +119,31 @@ class RSpotifyBot:
             logger.info("Temporary storage cleanup task stopped")
 
             logger.info("Bot stopped gracefully")
+    
+    async def _register_bot_commands(self) -> None:
+        """Register bot commands with Telegram for autocomplete."""
+        if not self.application:
+            return
+        
+        from telegram import BotCommand
+        
+        commands = [
+            BotCommand("start", "Start using rSpotify Bot"),
+            BotCommand("help", "Get help and command reference"),
+            BotCommand("login", "Connect your Spotify account"),
+            BotCommand("logout", "Disconnect and delete your data"),
+            BotCommand("me", "View your profile"),
+            BotCommand("rename", "Change your display name"),
+            BotCommand("privacy", "View privacy policy"),
+            BotCommand("ping", "Test bot connectivity"),
+            BotCommand("exportdata", "Export your personal data"),
+        ]
+        
+        try:
+            await self.application.bot.set_my_commands(commands)
+            logger.info(f"Registered {len(commands)} commands with Telegram")
+        except Exception as e:
+            logger.error(f"Failed to register commands with Telegram: {e}")
 
     def _register_handlers(self) -> None:
         """Register command and message handlers."""
@@ -125,7 +153,7 @@ class RSpotifyBot:
         # Register owner commands
         self.owner_handler = register_owner_commands(self.application, self.db_service)
 
-        # Register user commands (logout, exportdata)
+        # Register user commands (includes start, help, privacy, login, logout, etc.)
         register_user_command_handlers(self.application)
 
         # Get protection wrapper
@@ -137,12 +165,6 @@ class RSpotifyBot:
         # Command handlers with protection
         self.application.add_handler(
             CommandHandler("ping", protect("ping")(self.ping_command))
-        )
-        self.application.add_handler(
-            CommandHandler("start", protect("start")(self.start_command))
-        )
-        self.application.add_handler(
-            CommandHandler("help", protect("help")(self.help_command))
         )
         
         # Message handler for custom name input during onboarding
@@ -226,64 +248,6 @@ class RSpotifyBot:
         
         # Send single response with all information
         await update.message.reply_html(response)
-
-    async def start_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        """
-        Handle /start command.
-        Also handles OAuth deep links with code IDs (Spotipie-style flow).
-
-        Args:
-            update: Telegram update object
-            context: Bot context
-        """
-        user = update.effective_user
-
-        if not user:
-            return
-
-        # Check maintenance mode
-        if self.owner_handler and self.owner_handler.is_maintenance_mode():
-            from .services.auth import is_owner
-
-            if not await is_owner(user.id):
-                await self.owner_handler.send_maintenance_message(update)
-                return
-
-        logger.info(f"Start command from user {user.id}")
-
-        if not update.message:
-            return
-
-        # Check if this is an OAuth callback with code ID
-        # Format: /start CODE_ID (from Telegram deep link)
-        message_text = update.message.text
-        if message_text and len(message_text.split()) > 1:
-            code_id = message_text.split()[1]
-            
-            # Handle OAuth code retrieval and token exchange
-            await self._handle_oauth_code(update, context, code_id, user.id)
-            return
-
-        # Create or update user record
-        if self.db_service:
-            existing_user = await self.db_service.get_user(user.id)
-            if not existing_user:
-                await self.db_service.create_user(user.id, user.first_name)
-
-        welcome_message = (
-            f"<b>🎵 Welcome to rSpotify Bot!</b>\n\n"
-            f"Hello <b>{user.first_name or 'there'}</b>! I'm here to help you share "
-            f"and discover amazing music through Spotify integration.\n\n"
-            f"<b>Quick Start:</b>\n"
-            f"• Use <code>/login</code> to connect your Spotify account\n"
-            f"• Use <code>/ping</code> to test bot connectivity\n"
-            f"• Use <code>/help</code> to see all available commands\n\n"
-            f"<i>Let's make some music together!</i> 🎶"
-        )
-
-        await update.message.reply_html(welcome_message)
 
     async def _handle_oauth_code(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE, code_id: str, telegram_id: int
@@ -557,72 +521,6 @@ class RSpotifyBot:
         
         # Last resort
         return "User"
-
-    async def help_command(
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> None:
-        """
-        Handle /help command.
-
-        Args:
-            update: Telegram update object
-            context: Bot context
-        """
-        user = update.effective_user
-
-        if not user:
-            return
-
-        # Check maintenance mode
-        if self.owner_handler and self.owner_handler.is_maintenance_mode():
-            from .services.auth import is_owner
-
-            if not await is_owner(user.id):
-                await self.owner_handler.send_maintenance_message(update)
-                return
-
-        logger.info(f"Help command from user {user.id}")
-
-        if not update.message:
-            return
-
-        # Check if user is owner to show owner commands
-        from .services.auth import is_owner
-
-        is_bot_owner = await is_owner(user.id)
-
-        help_message = (
-            "<b>🤖 rSpotify Bot - Available Commands</b>\n\n"
-            "<b>Basic Commands:</b>\n"
-            "• <code>/start</code> - Welcome message and bot introduction\n"
-            "• <code>/ping</code> - Test bot connectivity and health\n"
-            "• <code>/help</code> - Show this help message\n\n"
-            "<b>Privacy & Data:</b>\n"
-            "• <code>/exportdata</code> - Export your personal data (GDPR)\n"
-            "• <code>/logout</code> - Delete all your data and disconnect\n\n"
-        )
-
-        if is_bot_owner:
-            help_message += (
-                "<b>👑 Owner Commands:</b>\n"
-                "• <code>/maintenance [on|off]</code> - Toggle maintenance mode\n"
-                "• <code>/stats [days]</code> - Show bot usage statistics\n"
-                "• <code>/blacklist &lt;user_id&gt; [reason]</code> - Block user\n"
-                "• <code>/whitelist &lt;user_id&gt;</code> - Unblock user\n"
-                "• <code>/logs [lines]</code> - Get bot output logs\n"
-                "• <code>/errorlogs [lines]</code> - Get bot error logs\n\n"
-            )
-
-        help_message += (
-            "<b>Coming Soon:</b>\n"
-            "• Spotify track sharing\n"
-            "• Music recommendations\n"
-            "• Now playing images\n"
-            "• Playlist management\n\n"
-            "<i>🚀 This bot is currently in development. More features will be added soon!</i>"
-        )
-
-        await update.message.reply_html(help_message)
 
     async def unknown_command(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
