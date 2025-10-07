@@ -23,56 +23,55 @@ echo "Database: ${DB_NAME}"
 echo "Domain: ${DOMAIN}"
 echo "OAuth Ports: HTTP ${OAUTH_HTTP_PORT}, HTTPS ${OAUTH_HTTPS_PORT}"
 
-# ===== OAuth Domain Setup Check =====
+echo ""
+echo "⬆️ Updating packages and installing dependencies..."
+apt-get update -y
+apt-get install -y python3.11 python3.11-venv python3-pip git supervisor libcap2-bin
+
+# Ensure application user exists
+useradd -m -s /bin/bash rspotify || true
+
+# Create directories required for deployment
+mkdir -p ${APP_DIR}/{logs,backups,letsencrypt,repo}
+
+# Fix git ownership warnings for repeated deployments
+git config --global --add safe.directory ${APP_DIR}/repo || true
+
+# Clone or update repository to provide deployment scripts
+if [ -d "${APP_DIR}/repo/.git" ]; then
+    cd ${APP_DIR}/repo
+    echo "📥 Fetching latest code..."
+    git fetch --tags origin ${BRANCH}
+    echo "🧼 Resetting repository to match remote ${BRANCH}"
+    git reset --hard origin/${BRANCH}
+    git clean -fd
+else
+    rm -rf ${APP_DIR}/repo
+    git clone -b ${BRANCH} https://github.com/shhvang/rSpotify.git ${APP_DIR}/repo
+    cd ${APP_DIR}/repo
+    git checkout ${BRANCH}
+    git config --global --add safe.directory ${APP_DIR}/repo || true
+fi
+
+# Ensure correct ownership
+chown -R rspotify:rspotify ${APP_DIR}
+
 echo ""
 echo "🔍 Checking OAuth domain and SSL setup..."
-
-# Check if SSL certificates exist for the domain
+SETUP_SCRIPT="${APP_DIR}/repo/scripts/setup-oauth-domain.sh"
 if [ ! -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
     echo "⚠️  SSL certificates not found for ${DOMAIN}"
     echo "🚀 Running OAuth domain setup script..."
-    
-    # Check if setup script exists
-    if [ -f "${APP_DIR}/repo/scripts/setup-oauth-domain.sh" ]; then
-        bash "${APP_DIR}/repo/scripts/setup-oauth-domain.sh"
-    elif [ -f "./setup-oauth-domain.sh" ]; then
-        bash "./setup-oauth-domain.sh"
+    if [ -f "${SETUP_SCRIPT}" ]; then
+        bash "${SETUP_SCRIPT}"
     else
-        echo "❌ Error: setup-oauth-domain.sh not found!"
-        echo "Please run setup-oauth-domain.sh manually before deploying."
+        echo "❌ Error: setup-oauth-domain.sh not found at ${SETUP_SCRIPT}!"
+        echo "Please ensure the repository contains the script before deploying."
         exit 1
     fi
 else
     echo "✅ OAuth domain setup already complete (SSL certificates found)"
 fi
-
-# Update system
-apt-get update -y
-apt-get install -y python3.11 python3.11-venv python3-pip git supervisor libcap2-bin
-
-# Create app user
-useradd -m -s /bin/bash rspotify || true
-
-# Create directories
-mkdir -p ${APP_DIR}/{logs,backups,letsencrypt}
-
-# Fix git ownership issue
-git config --global --add safe.directory ${APP_DIR}/repo
-
-# Clone/update repository
-if [ -d "${APP_DIR}/repo" ]; then
-    cd ${APP_DIR}/repo
-    echo "📥 Fetching latest code..."
-    git fetch --tags origin ${BRANCH}
-    echo "🧹 Resetting repository to match remote ${BRANCH}"
-    git reset --hard origin/${BRANCH}
-    git clean -fd
-else
-    git clone -b ${BRANCH} https://github.com/shhvang/rSpotify.git ${APP_DIR}/repo
-    git config --global --add safe.directory ${APP_DIR}/repo
-fi
-
-chown -R rspotify:rspotify ${APP_DIR}
 
 # Setup virtual environment
 cd ${APP_DIR}/repo
@@ -83,7 +82,6 @@ pip install --upgrade -r requirements.txt
 pip install --upgrade -e .
 
 # Grant Python capability to bind to privileged ports (80, 443) without root
-# The venv python is a symlink, so we need to apply setcap to the real binary
 PYTHON_VENV=${APP_DIR}/venv/bin/python3.11
 if [ -L "$PYTHON_VENV" ]; then
     PYTHON_BIN=$(readlink -f "$PYTHON_VENV")
@@ -94,7 +92,7 @@ fi
 echo "Setting CAP_NET_BIND_SERVICE capability on $PYTHON_BIN"
 setcap 'cap_net_bind_service=+ep' "$PYTHON_BIN"
 
-# Verify
+# Verify capability assignment
 if getcap "$PYTHON_BIN" | grep -q cap_net_bind_service; then
     echo "✅ Successfully granted CAP_NET_BIND_SERVICE to Python"
 else
@@ -141,8 +139,6 @@ environment=HOME="${APP_DIR}",PATH="${APP_DIR}/venv/bin"
 EOF
 
 # Setup supervisor for aiohttp OAuth callback service (Story 1.4)
-# This service handles SSL automatically via certbot - no Nginx needed
-# Python has CAP_NET_BIND_SERVICE capability, so rspotify user can bind to ports 80/443
 cat > /etc/supervisor/conf.d/${SUPERVISOR_OAUTH_NAME}.conf << EOF
 [program:${SUPERVISOR_OAUTH_NAME}]
 command=${APP_DIR}/venv/bin/python ${APP_DIR}/repo/web_callback/app.py
@@ -154,7 +150,6 @@ stderr_logfile=${APP_DIR}/logs/oauth_error.log
 stdout_logfile=${APP_DIR}/logs/oauth_output.log
 environment=HOME="${APP_DIR}",PATH="${APP_DIR}/venv/bin"
 EOF
-
 # Setup web app bots if tokens are provided
 if [ ! -z "${BETTERTHANVERY_BOT_TOKEN}" ]; then
     echo "📱 Setting up Better Than Very bot..."
@@ -202,13 +197,13 @@ environment=HOME="${APP_DIR}",PATH="${APP_DIR}/venv/bin"
 EOF
 fi
 
-# Reload supervisor
+
+# Reload supervisor and restart services
 supervisorctl reread
 supervisorctl update
 supervisorctl restart ${SUPERVISOR_BOT_NAME}
 supervisorctl restart ${SUPERVISOR_OAUTH_NAME}
 
-# Restart web app bots if configured
 if [ ! -z "${BETTERTHANVERY_BOT_TOKEN}" ]; then
     supervisorctl restart betterthanvery-bot
 fi

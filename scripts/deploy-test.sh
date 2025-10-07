@@ -23,62 +23,59 @@ echo "Database: ${DB_NAME}"
 echo "Domain: ${DOMAIN}"
 echo "OAuth Ports: HTTP ${OAUTH_HTTP_PORT}, HTTPS ${OAUTH_HTTPS_PORT}"
 
-# ===== OAuth Domain Setup Check =====
 echo ""
-echo "🔍 Checking OAuth domain and SSL setup for TEST environment..."
-
-# Check if SSL certificates exist for the test domain
-if [ ! -z "${DOMAIN}" ] && [ ! -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
-    echo "⚠️  SSL certificates not found for ${DOMAIN}"
-    echo "🚀 Running OAuth domain setup script..."
-    
-    # Check if setup script exists
-    if [ -f "${APP_DIR}/repo/scripts/setup-oauth-domain.sh" ]; then
-        bash "${APP_DIR}/repo/scripts/setup-oauth-domain.sh"
-    elif [ -f "./setup-oauth-domain.sh" ]; then
-        bash "./setup-oauth-domain.sh"
-    else
-        echo "❌ Error: setup-oauth-domain.sh not found!"
-        echo "Please run setup-oauth-domain.sh manually before deploying."
-        exit 1
-    fi
-else
-    if [ ! -z "${DOMAIN}" ]; then
-        echo "✅ OAuth domain setup already complete for ${DOMAIN} (SSL certificates found)"
-    else
-        echo "⚠️  DOMAIN not set, skipping OAuth setup check"
-    fi
-fi
-
-# Update system
+echo "⬆️ Updating packages and installing dependencies..."
 apt-get update -y
 apt-get install -y python3.11 python3.11-venv python3-pip git supervisor libcap2-bin
 
-# Create app user (shared with production)
+# Ensure application user exists (shared with production)
 useradd -m -s /bin/bash rspotify || true
 
 # Create TEST environment directories
-mkdir -p ${APP_DIR}/{logs,backups,letsencrypt}
+mkdir -p ${APP_DIR}/{logs,backups,letsencrypt,repo}
 
-# Fix git ownership issue
-git config --global --add safe.directory ${APP_DIR}/repo
+# Fix git ownership issue for repeated deployments
+git config --global --add safe.directory ${APP_DIR}/repo || true
 
-# Clone/update repository
-if [ -d "${APP_DIR}/repo" ]; then
+# Clone or update repository so auxiliary scripts are available
+if [ -d "${APP_DIR}/repo/.git" ]; then
     cd ${APP_DIR}/repo
     echo "📥 Fetching latest code..."
     git fetch --tags origin ${BRANCH}
-    echo "🧹 Resetting repository to match remote ${BRANCH}"
+    echo "🧼 Resetting repository to match remote ${BRANCH}"
     git reset --hard origin/${BRANCH}
     git clean -fd
 else
+    rm -rf ${APP_DIR}/repo
     git clone -b ${BRANCH} https://github.com/shhvang/rSpotify.git ${APP_DIR}/repo
     cd ${APP_DIR}/repo
     git checkout ${BRANCH}
-    git config --global --add safe.directory ${APP_DIR}/repo
+    git config --global --add safe.directory ${APP_DIR}/repo || true
 fi
 
+# Ensure correct ownership
 chown -R rspotify:rspotify ${APP_DIR}
+
+echo ""
+echo "🔍 Checking OAuth domain and SSL setup for TEST environment..."
+SETUP_SCRIPT="${APP_DIR}/repo/scripts/setup-oauth-domain.sh"
+if [ -n "${DOMAIN}" ]; then
+    if [ ! -d "/etc/letsencrypt/live/${DOMAIN}" ]; then
+        echo "⚠️  SSL certificates not found for ${DOMAIN}"
+        echo "🚀 Running OAuth domain setup script..."
+        if [ -f "${SETUP_SCRIPT}" ]; then
+            bash "${SETUP_SCRIPT}"
+        else
+            echo "❌ Error: setup-oauth-domain.sh not found at ${SETUP_SCRIPT}!"
+            echo "Please ensure the repository contains the script before deploying."
+            exit 1
+        fi
+    else
+        echo "✅ OAuth domain setup already complete for ${DOMAIN} (SSL certificates found)"
+    fi
+else
+    echo "⚠️  DOMAIN not set, skipping OAuth setup check"
+fi
 
 # Setup virtual environment for TEST
 cd ${APP_DIR}/repo
@@ -99,7 +96,7 @@ fi
 echo "Setting CAP_NET_BIND_SERVICE capability on $PYTHON_BIN"
 setcap 'cap_net_bind_service=+ep' "$PYTHON_BIN"
 
-# Verify
+# Verify capability assignment
 if getcap "$PYTHON_BIN" | grep -q cap_net_bind_service; then
     echo "✅ Successfully granted CAP_NET_BIND_SERVICE to Python"
 else
@@ -146,7 +143,6 @@ environment=HOME="${APP_DIR}",PATH="${APP_DIR}/venv/bin"
 EOF
 
 # Setup supervisor for TEST aiohttp OAuth callback service
-# Note: Test environment uses different ports to avoid conflicts with production
 cat > /etc/supervisor/conf.d/${SUPERVISOR_OAUTH_NAME}.conf << EOF
 [program:${SUPERVISOR_OAUTH_NAME}]
 command=${APP_DIR}/venv/bin/python ${APP_DIR}/repo/web_callback/app.py
@@ -159,7 +155,7 @@ stdout_logfile=${APP_DIR}/logs/oauth_output.log
 environment=HOME="${APP_DIR}",PATH="${APP_DIR}/venv/bin"
 EOF
 
-# Reload supervisor
+# Reload supervisor and restart services
 supervisorctl reread
 supervisorctl update
 supervisorctl restart ${SUPERVISOR_BOT_NAME}
