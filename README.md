@@ -1,18 +1,35 @@
 # rSpotify Bot
 
-**Version 1.1.0** - Last working perfectly code
+**Version 1.2.0** - Onboarding & Help System
 
-A production-ready Telegram bot for Spotify OAuth authentication and user management with secure data storage, automated deployment, and comprehensive testing infrastructure.
+A production-ready Telegram bot for Spotify integration with OAuth authentication, interactive help system, comprehensive onboarding, and secure data storage.
 
 ## Project Status
 
-- Production Ready - Fully tested and deployed
-- 207 Tests Passing - Comprehensive unit and integration test coverage
-- OAuth Flow Complete - Secure Spotify authentication with aiohttp callback service
-- Async Architecture - Non-blocking I/O with proper thread-pool handling for MongoDB
-- Supervisor-Managed - Production deployment with automated process supervision
+- ✅ Production Ready - Fully tested and deployed
+- ✅ 244 Tests Passing - Comprehensive unit and integration test coverage
+- ✅ Interactive Help System - Category-based help with Premium feature detection
+- ✅ Onboarding Flow - Guided user experience for new users
+- ✅ OAuth Flow Complete - Secure Spotify authentication with aiohttp callback service
+- ✅ Async Architecture - Non-blocking I/O with proper thread-pool handling for MongoDB
+- ✅ Supervisor-Managed - Production deployment with automated process supervision
 
 ## Features
+
+### Onboarding & Help System (Story 2.1) 🆕
+- **Interactive Help Menu** - Category-based help with inline buttons
+- **Smart Onboarding** - Different flows for new, returning, and authenticated users
+- **Dynamic Content** - Help adapts based on authentication and Spotify Premium status
+- **Privacy Policy** - Comprehensive GDPR-compliant privacy documentation
+- **Help Categories**:
+  - 🚀 Getting Started - First steps and authentication guide
+  - 🔐 Authentication - Login, logout, profile management
+  - 🔍 Search & Discovery - Music search and track information
+  - ⏯️ Playback Control - Premium features for playback management
+  - 📊 Advanced Features - Volume, shuffle, repeat, queue
+  - 💬 Feedback - User feedback submission
+- **User Capability Detection** - Automatically detects Free vs Premium accounts
+- **Visual Indicators** - 🔓 Public, 🔐 Authenticated, 💎 Premium badges
 
 ### Spotify OAuth Authentication (Story 1.4)
 - Secure OAuth 2.0 Flow with PKCE support
@@ -50,7 +67,7 @@ A production-ready Telegram bot for Spotify OAuth authentication and user manage
 - aiohttp OAuth Service - Separate SSL-enabled callback server
 - MongoDB Backend - Cross-process temporary storage with TTL indexes
 - Async Architecture - Non-blocking I/O with thread-pool for blocking operations
-- Comprehensive Testing - 207 tests (unit + integration)
+- Comprehensive Testing - 244 tests (unit + integration + handlers + services)
 - Error Tracking - UUID-based error IDs and structured logging
 - SSL Automation - Certbot integration for automatic certificate management
 
@@ -65,88 +82,123 @@ A production-ready Telegram bot for Spotify OAuth authentication and user manage
 ### Installation
 
 1. Clone the repository:
+   ```bash
    git clone https://github.com/shhvang/rSpotify.git
    cd rSpotify/rspotify-bot
+   ```
 
 2. Setup Python environment:
+   ```bash
    python -m venv .venv
    .venv\\Scripts\\Activate.ps1  # Windows
    source .venv/bin/activate      # Linux/Mac
    pip install -e .[dev]
+   ```
 
 3. Configure environment:
+   ```bash
    cp .env.example .env
    # Edit .env with your credentials
+   ```
 
 4. Run the bot:
+   ```bash
    python rspotify.py
+   ```
 
 5. Run the OAuth callback service (separate terminal):
+   ```bash
    cd web_callback
    python app.py
+   ```
 
 ### Testing
 
-pytest                    # All tests (207 tests)
-pytest tests/unit/        # Unit tests only
-pytest tests/integration/ # Integration tests only
-pytest --cov=rspotify_bot # Coverage report
+```bash
+# Run all tests (244 tests)
+pytest
+
+# Run by category
+pytest tests/unit/                    # All unit tests
+pytest tests/unit/handlers/           # Handler tests only
+pytest tests/unit/services/           # Service tests only
+pytest tests/integration/             # Integration tests only
+
+# Run specific test files
+pytest tests/unit/handlers/test_onboarding_help.py -v
+pytest tests/integration/test_onboarding_flow.py -v
+
+# Coverage report
+pytest --cov=rspotify_bot --cov-report=html
+```
 
 ## Project Structure
 
+```
 rspotify-bot/
- rspotify_bot/              # Main application package
-    bot.py                 # Core bot implementation
-    config.py              # Configuration management
-    handlers/              # Command handlers
-       owner_commands.py  # Admin commands
-       user_commands.py   # User commands
-    services/              # Core services
-        auth.py            # Spotify OAuth token exchange
-        database.py        # MongoDB operations (async-safe)
-        encryption.py      # Token encryption (Fernet)
-        middleware.py      # Temp storage, rate limiting
-        notifications.py   # Owner notifications
-        repository.py      # Data access layer
-        validation.py      # Input sanitization
- web_callback/              # OAuth callback service
-    app.py                 # aiohttp web service with SSL
- tests/                     # Test suite (207 tests)
-    unit/                  # Unit tests
-    integration/           # Integration tests
- docs/                      # Documentation
- scripts/                   # Utility scripts
- .env.example               # Environment template
- pyproject.toml             # Project config
- requirements.txt           # Python dependencies
- rspotify.py               # Entry point
+├── rspotify_bot/              # Main application package
+│   ├── bot.py                 # Core bot implementation
+│   ├── config.py              # Configuration management
+│   ├── handlers/              # Command handlers
+│   │   ├── owner_commands.py  # Admin commands
+│   │   └── user_commands.py   # User commands (start, help, privacy, etc.)
+│   └── services/              # Core services
+│       ├── auth.py            # Spotify OAuth token exchange
+│       ├── database.py        # MongoDB operations (async-safe)
+│       ├── encryption.py      # Token encryption (Fernet)
+│       ├── middleware.py      # Temp storage, rate limiting
+│       ├── notifications.py   # Owner notifications
+│       ├── repository.py      # Data access layer
+│       └── validation.py      # Input sanitization
+├── web_callback/              # OAuth callback service
+│   └── app.py                 # aiohttp web service with SSL
+├── tests/                     # Test suite (244 tests)
+│   ├── unit/                  # Unit tests
+│   │   ├── handlers/          # Handler tests (onboarding, help, profiles, owner)
+│   │   └── services/          # Service tests (auth, validation, encryption)
+│   └── integration/           # Integration tests (OAuth, database, onboarding)
+├── docs/                      # Documentation
+│   ├── PRIVACY_POLICY.md      # Privacy policy document
+│   └── rules.md               # Development rules and guidelines
+├── scripts/                   # Utility scripts
+├── .env.example               # Environment template
+├── pyproject.toml             # Project config
+├── requirements.txt           # Python dependencies
+└── rspotify.py               # Entry point
+```
 
 ## Environment Variables
 
 ### Core Configuration
-- TELEGRAM_BOT_TOKEN: Telegram bot token from @BotFather
-- OWNER_TELEGRAM_ID: Your Telegram user ID
-- MONGODB_URI: MongoDB Atlas connection string
+- `TELEGRAM_BOT_TOKEN`: Telegram bot token from @BotFather
+- `OWNER_TELEGRAM_ID`: Your Telegram user ID
+- `MONGODB_URI`: MongoDB Atlas connection string
 
 ### Security
-- ENCRYPTION_KEY: Fernet encryption key for OAuth tokens
-- SPOTIFY_CLIENT_ID: Spotify application client ID
-- SPOTIFY_CLIENT_SECRET: Spotify application client secret
-- SPOTIFY_REDIRECT_URI: OAuth redirect URI
+- `ENCRYPTION_KEY`: Fernet encryption key for OAuth tokens
+- `SPOTIFY_CLIENT_ID`: Spotify application client ID
+- `SPOTIFY_CLIENT_SECRET`: Spotify application client secret
+- `SPOTIFY_REDIRECT_URI`: OAuth redirect URI
 
 ### Infrastructure
-- ENVIRONMENT: development or production
-- DEBUG: Enable debug logging (true/false)
-- LOG_LEVEL: Logging level (DEBUG, INFO, WARNING, ERROR)
+- `ENVIRONMENT`: development or production
+- `DEBUG`: Enable debug logging (true/false)
+- `LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR)
 
-## Owner Commands
+## Available Commands
 
-- /maintenance [on|off] - Toggle bot maintenance mode
-- /stats [days] - View bot usage statistics
-- /blacklist <user_id> [reason] - Block a user
-- /whitelist <user_id> - Unblock a user
+### User Commands
+- `/start` - Welcome message with onboarding flow
+- `/help` - Interactive help menu with categories
+- `/privacy` - View privacy policy
+- `/login` - Connect Spotify account
+- `/logout` - Disconnect and delete all data
+- `/me` - View your profile (name, connection status, account type)
+- `/rename` - Change your display name
+- `/exportdata` - Export your personal data (GDPR compliance)
+- `/feedback` - Send feedback to the developer
 
-## User Commands
+### Owner Commands
 
 - /start - Initialize bot and create user profile
 - /ping - Check bot status and database connection
