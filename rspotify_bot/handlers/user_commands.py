@@ -5,8 +5,8 @@ Handles user-facing commands like /login, /logout for Spotify authentication and
 
 import logging
 import secrets
-from typing import Any, cast
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from typing import Any, Optional, cast
+from telegram import Message, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
 
 from ..services.database import DatabaseService
