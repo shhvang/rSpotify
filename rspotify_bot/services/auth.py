@@ -384,6 +384,7 @@ class SpotifyAuthService:
                     raise Exception("Invalid response from Spotify profile endpoint")
                 
                 logger.info(f"Successfully fetched Spotify profile for user {profile_data.get('id', 'unknown')}")
+                logger.debug(f"Full Spotify API response: {profile_data}")
                 logger.debug(f"Spotify profile data: product={profile_data.get('product')}, display_name={profile_data.get('display_name')}")
                 
                 return {
