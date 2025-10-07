@@ -461,8 +461,15 @@ async def handle_me(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 )
                 
                 if profile:
-                    product = profile.get("product", "free")
-                    account_type = "Premium" if product == "premium" else "Free"
+                    product = profile.get("product")
+                    if product == "premium":
+                        account_type = "Premium"
+                    elif product == "free":
+                        account_type = "Free"
+                    elif product is None:
+                        account_type = "Unknown (Not available in your region)"
+                    else:
+                        account_type = product.capitalize()  # e.g., "Open"
             except Exception as e:
                 logger.warning(f"Could not fetch Spotify account type: {e}")
                 account_type = "Unknown"

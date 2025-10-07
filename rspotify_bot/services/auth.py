@@ -385,12 +385,17 @@ class SpotifyAuthService:
                 
                 logger.info(f"Successfully fetched Spotify profile for user {profile_data.get('id', 'unknown')}")
                 logger.debug(f"Full Spotify API response: {profile_data}")
-                logger.debug(f"Spotify profile data: product={profile_data.get('product')}, display_name={profile_data.get('display_name')}")
+                
+                # Note: product field is not available in all regions/account types
+                # If not present, we return None to indicate unknown status
+                product = profile_data.get("product")  # Can be: premium, free, open, or None
+                if product is None:
+                    logger.warning("Spotify API did not return 'product' field - subscription type unavailable for this account/region")
                 
                 return {
                     "display_name": profile_data.get("display_name"),
                     "email": profile_data.get("email"),
-                    "product": profile_data.get("product", "free"),  # free, premium, open
+                    "product": product,  # None means unknown, not free
                     "country": profile_data.get("country"),
                     "id": profile_data.get("id"),
                 }
