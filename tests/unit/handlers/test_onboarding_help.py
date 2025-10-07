@@ -1,4 +1,4 @@
-﻿"""
+"""
 Unit tests for onboarding and help command handlers.
 Tests /start, /help, /privacy commands and related callbacks.
 """

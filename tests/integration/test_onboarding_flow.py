@@ -1,4 +1,4 @@
-﻿"""
+"""
 Integration tests for onboarding and help flow.
 Tests complete user journeys through the help system.
 """
