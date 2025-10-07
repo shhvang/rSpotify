@@ -1,4 +1,4 @@
-﻿"""Integration tests for Spotify OAuth flow.
+"""Integration tests for Spotify OAuth flow.
 
 Tests OAuth callback endpoint, token exchange, and database integration.
 These tests use mocked Spotify API responses but real database operations.

@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 # Debug script to test OAuth service manually
 # Run this on the server to see the actual error
 

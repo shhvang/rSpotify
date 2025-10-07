@@ -1,4 +1,4 @@
-﻿"""
+"""
 Owner command handlers for rSpotify Bot.
 Provides administrative commands exclusively for the bot owner.
 """
