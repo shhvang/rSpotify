@@ -117,7 +117,7 @@ dig @localhost $TEST_DOMAIN +short
 echo ""
 echo "💡 Port Configuration:"
 echo "   Production OAuth (aiohttp): Ports 80 (HTTP) / 443 (HTTPS)"
-echo "   Test OAuth (aiohttp): Ports 8080 (HTTP) / 8443 (HTTPS)"
+echo "   Test OAuth (aiohttp): Ports \$OAUTH_HTTP_PORT (HTTP) / \$OAUTH_HTTPS_PORT (HTTPS)"
 echo ""
 echo "💡 Architecture Note:"
 echo "   - aiohttp services bind directly to their ports (CAP_NET_BIND_SERVICE)"
