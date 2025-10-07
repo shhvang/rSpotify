@@ -69,6 +69,7 @@ jobs:
         scp -i ~/.ssh/key scripts/deploy.sh root@${{ secrets.PRODUCTION_HOST }}:/tmp/deploy.sh
         
         ssh -i ~/.ssh/key root@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          chmod +x /tmp/deploy.sh
           export TELEGRAM_BOT_TOKEN="${{ secrets.PRODUCTION_BOT_TOKEN }}"
           export MONGODB_URI="${{ secrets.MONGODB_URI }}"
           export OWNER_TELEGRAM_ID="${{ secrets.OWNER_TELEGRAM_ID }}"

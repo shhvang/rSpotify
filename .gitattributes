@@ -1,0 +1,16 @@
+# Ensure shell scripts are treated as text with LF endings
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Ensure GitHub workflows are text
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Ensure markdown files are text
+*.md text eol=lf
+
+# Ensure Python files are text
+*.py text eol=lf
+
+# Auto-detect text files
+* text=auto
