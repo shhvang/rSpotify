@@ -66,24 +66,21 @@ jobs:
         chmod 600 ~/.ssh/key
         ssh-keyscan -H ${{ secrets.PRODUCTION_HOST }} >> ~/.ssh/known_hosts
         
-        scp -i ~/.ssh/key scripts/deploy.sh root@${{ secrets.PRODUCTION_HOST }}:/tmp/deploy.sh
+        # Execute deployment by piping script directly (avoids binary file issues)
+        export TELEGRAM_BOT_TOKEN="${{ secrets.PRODUCTION_BOT_TOKEN }}"
+        export MONGODB_URI="${{ secrets.MONGODB_URI }}"
+        export OWNER_TELEGRAM_ID="${{ secrets.OWNER_TELEGRAM_ID }}"
+        export ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}"
+        export SPOTIFY_CLIENT_ID="${{ secrets.SPOTIFY_CLIENT_ID }}"
+        export SPOTIFY_CLIENT_SECRET="${{ secrets.SPOTIFY_CLIENT_SECRET }}"
+        export PASTEBIN_API_KEY="${{ secrets.PASTEBIN_API_KEY }}"
+        export PASTEBIN_USER_KEY="${{ secrets.PASTEBIN_USER_KEY }}"
+        export BOT_USERNAME="${{ secrets.BOT_USERNAME }}"
+        export CERTBOT_EMAIL="${{ secrets.CERTBOT_EMAIL }}"
+        export BETTERTHANVERY_BOT_TOKEN="${{ secrets.BETTERTHANVERY_BOT_TOKEN }}"
+        export PERFECTCIRCLE_BOT_TOKEN="${{ secrets.PERFECTCIRCLE_BOT_TOKEN }}"
         
-        ssh -i ~/.ssh/key root@${{ secrets.PRODUCTION_HOST }} << 'EOF'
-          chmod +x /tmp/deploy.sh
-          export TELEGRAM_BOT_TOKEN="${{ secrets.PRODUCTION_BOT_TOKEN }}"
-          export MONGODB_URI="${{ secrets.MONGODB_URI }}"
-          export OWNER_TELEGRAM_ID="${{ secrets.OWNER_TELEGRAM_ID }}"
-          export ENCRYPTION_KEY="${{ secrets.ENCRYPTION_KEY }}"
-          export SPOTIFY_CLIENT_ID="${{ secrets.SPOTIFY_CLIENT_ID }}"
-          export SPOTIFY_CLIENT_SECRET="${{ secrets.SPOTIFY_CLIENT_SECRET }}"
-          export PASTEBIN_API_KEY="${{ secrets.PASTEBIN_API_KEY }}"
-          export PASTEBIN_USER_KEY="${{ secrets.PASTEBIN_USER_KEY }}"
-          export BOT_USERNAME="${{ secrets.BOT_USERNAME }}"
-          export CERTBOT_EMAIL="${{ secrets.CERTBOT_EMAIL }}"
-          export BETTERTHANVERY_BOT_TOKEN="${{ secrets.BETTERTHANVERY_BOT_TOKEN }}"
-          export PERFECTCIRCLE_BOT_TOKEN="${{ secrets.PERFECTCIRCLE_BOT_TOKEN }}"
-          bash /tmp/deploy.sh
-        EOF
+        cat scripts/deploy.sh | ssh -i ~/.ssh/key root@${{ secrets.PRODUCTION_HOST }} "export TELEGRAM_BOT_TOKEN='$TELEGRAM_BOT_TOKEN' MONGODB_URI='$MONGODB_URI' OWNER_TELEGRAM_ID='$OWNER_TELEGRAM_ID' ENCRYPTION_KEY='$ENCRYPTION_KEY' SPOTIFY_CLIENT_ID='$SPOTIFY_CLIENT_ID' SPOTIFY_CLIENT_SECRET='$SPOTIFY_CLIENT_SECRET' PASTEBIN_API_KEY='$PASTEBIN_API_KEY' PASTEBIN_USER_KEY='$PASTEBIN_USER_KEY' BOT_USERNAME='$BOT_USERNAME' CERTBOT_EMAIL='$CERTBOT_EMAIL' BETTERTHANVERY_BOT_TOKEN='$BETTERTHANVERY_BOT_TOKEN' PERFECTCIRCLE_BOT_TOKEN='$PERFECTCIRCLE_BOT_TOKEN' && bash -s"
     
     - name: Notify
       if: always()
